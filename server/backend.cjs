@@ -1,0 +1,104 @@
+const http = require('http');
+
+function createBackend() {
+  let server;
+  const port = 17890;
+
+  const routeMeta = {
+    ask: {
+      title: '问',
+      description: '这里承载问答、提问和知识查询页面。'
+    },
+    test: {
+      title: '测',
+      description: '这里承载测试、测验和练习页面。'
+    },
+    analysis: {
+      title: '析',
+      description: '这里承载分析、报告和结果解读页面。'
+    }
+  };
+
+  function normalizeRoute(route) {
+    if (route === 'ask' || route === 'test' || route === 'analysis') {
+      return route;
+    }
+    return 'ask';
+  }
+
+  async function handleRequest(request = {}) {
+    const type = request.type || 'route-meta';
+
+    if (type === 'route-meta') {
+      const route = normalizeRoute(request.route);
+      return {
+        ok: true,
+        data: {
+          route,
+          ...routeMeta[route],
+          timestamp: new Date().toISOString()
+        }
+      };
+    }
+
+    if (type === 'ping') {
+      return {
+        ok: true,
+        data: {
+          message: 'pong',
+          timestamp: new Date().toISOString()
+        }
+      };
+    }
+
+    return {
+      ok: false,
+      error: `Unknown request type: ${type}`
+    };
+  }
+
+  function start() {
+    if (server) {
+      return Promise.resolve();
+    }
+
+    server = http.createServer(async (req, res) => {
+      if (req.method === 'GET' && req.url === '/health') {
+        const result = await handleRequest({ type: 'ping' });
+        res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify(result));
+        return;
+      }
+
+      res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: false, error: 'Not found' }));
+    });
+
+    return new Promise((resolve) => {
+      server.listen(port, '127.0.0.1', resolve);
+    });
+  }
+
+  function stop() {
+    if (!server) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      server.close(() => {
+        server = undefined;
+        resolve();
+      });
+    });
+  }
+
+  return {
+    handleRequest,
+    start,
+    stop
+  };
+}
+
+module.exports = {
+  createBackend
+};

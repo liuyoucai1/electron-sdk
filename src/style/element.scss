@@ -1,0 +1,35 @@
+:root {
+  --el-color-primary: var(--ez-p500);
+  --el-color-primary-light-3: var(--ez-p300);
+  --el-color-primary-light-5: var(--ez-p200);
+  --el-color-primary-light-7: var(--ez-p100);
+  --el-color-primary-light-9: var(--ez-p50);
+  --el-color-primary-dark-2: var(--ez-p700);
+  --el-color-success: var(--ez-success);
+  --el-color-warning: var(--ez-warn);
+  --el-color-danger: var(--ez-error);
+  --el-text-color-primary: var(--ez-n900);
+  --el-text-color-regular: var(--ez-n700);
+  --el-text-color-secondary: var(--ez-n500);
+  --el-border-color: var(--ez-n200);
+  --el-border-color-light: var(--ez-n150);
+  --el-fill-color-light: var(--ez-n50);
+  --el-fill-color-blank: #ffffff;
+  --el-border-radius-base: 8px;
+  --el-border-radius-round: 999px;
+}
+
+.el-button {
+  --el-button-border-radius: 14px;
+  min-height: 40px;
+  font-weight: 700;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--ez-p500);
+  --el-button-border-color: var(--ez-p500);
+  --el-button-hover-bg-color: var(--ez-p600);
+  --el-button-hover-border-color: var(--ez-p600);
+  --el-button-active-bg-color: var(--ez-p700);
+  --el-button-active-border-color: var(--ez-p700);
+}

@@ -1,0 +1,70 @@
+:root {
+  --ez-p700: #3d7a68;
+  --ez-p600: #4a8a78;
+  --ez-p500: #5b9f8a;
+  --ez-p300: #a8c8c0;
+  --ez-p200: #c8ddd6;
+  --ez-p100: #e0ede4;
+  --ez-p50: #f0f7f4;
+  --ez-n950: #111418;
+  --ez-n900: #1a1f24;
+  --ez-n800: #2d3436;
+  --ez-n700: #4a5568;
+  --ez-n600: #636e72;
+  --ez-n500: #7f8c8d;
+  --ez-n400: #95a5a6;
+  --ez-n300: #b2bec3;
+  --ez-n200: #dfe6e9;
+  --ez-n150: #eef1f3;
+  --ez-n100: #f5f6f7;
+  --ez-n50: #fafbfc;
+  --ez-warn: #e8924f;
+  --ez-error: #d9827b;
+  --ez-success: #27ae60;
+  --ez-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --ez-shadow-2: 0 2px 12px rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04);
+  --ez-shadow-3: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+  --ez-shadow-4: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 20px rgba(0, 0, 0, 0.08);
+  color: var(--ez-n900);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Microsoft YaHei", sans-serif;
+  background: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.overlay-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.overlay-root > * {
+  pointer-events: auto;
+}
+
+.empty-stage {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
