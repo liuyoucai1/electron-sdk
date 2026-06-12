@@ -20,26 +20,27 @@ export const useFlowStore = defineStore('flow', {
   getters: {
     hasActiveFlow: (state) => Boolean(state.activeFlow),
     isFullscreen: (state) => state.viewMode === 'fullscreen',
-    isWidgetVisible: (state) => ['widget', 'sidePanel', 'minimized'].includes(state.viewMode),
-    shouldHideFloatingBall: (state) =>
-      state.viewMode === 'fullscreen' || state.currentStep === 'answer-progress'
+    isSmallPageVisible: (state) => state.viewMode === 'small-page',
+    isCompactVisible: (state) => ['compact', 'minimized'].includes(state.viewMode),
+    shouldHideFloatingBall: (state) => state.viewMode !== 'idle'
   },
   actions: {
     // 从悬浮球进入“问”线路入口小屏。
     startAskFlow() {
       this.activeFlow = 'ask';
       this.currentStep = 'ask-entry';
-      this.viewMode = 'widget';
+      this.viewMode = 'small-page';
       this.sessionId = `ask-${Date.now()}`;
       this.questionId = null;
       this.batchId = null;
       this.currentQuestionIndex = 0;
       this.nextStep = null;
       this.nextViewMode = null;
-      this.fullscreenRoute = null;
+      this.fullscreenRoute = '/ask/fullscreen';
 
       return {
-        widgetType: 'ask-entry',
+        displayMode: 'small-page',
+        pageType: 'ask-entry',
         props: {
           sessionId: this.sessionId
         }
@@ -52,15 +53,20 @@ export const useFlowStore = defineStore('flow', {
         return null;
       }
 
+      if (payload.action === 'close-flow') {
+        return this.resetFlow();
+      }
+
       if (payload.action === 'open-answer-progress') {
         this.currentStep = 'answer-progress';
-        this.viewMode = 'widget';
+        this.viewMode = 'small-page';
         this.questionId = payload.questionId || null;
-        this.nextStep = null;
-        this.nextViewMode = null;
+        this.nextStep = 'single-analysis';
+        this.nextViewMode = 'fullscreen';
 
         return {
-          widgetType: 'answer-progress',
+          displayMode: 'small-page',
+          pageType: 'answer-progress',
           props: {
             sessionId: this.sessionId,
             questionType: payload.questionType,
@@ -69,12 +75,26 @@ export const useFlowStore = defineStore('flow', {
         };
       }
 
-      if (payload.action === 'open-multi-question') {
-        this.currentStep = 'multi-question';
-        this.viewMode = 'widget';
+      if (payload.action === 'finish-answering') {
+        this.currentStep = this.nextStep || 'single-analysis';
+        this.viewMode = this.nextViewMode || 'fullscreen';
+        this.nextStep = null;
+        this.nextViewMode = null;
+        this.fullscreenRoute = '/ask/fullscreen';
 
         return {
-          widgetType: 'multi-question',
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute
+        };
+      }
+
+      if (payload.action === 'open-multi-question') {
+        this.currentStep = 'multi-question';
+        this.viewMode = 'small-page';
+
+        return {
+          displayMode: 'small-page',
+          pageType: 'multi-question',
           props: {
             sessionId: this.sessionId
           }
@@ -83,10 +103,11 @@ export const useFlowStore = defineStore('flow', {
 
       if (payload.action === 'open-read-recite') {
         this.currentStep = 'read-recite';
-        this.viewMode = 'widget';
+        this.viewMode = 'small-page';
 
         return {
-          widgetType: 'read-recite',
+          displayMode: 'small-page',
+          pageType: 'read-recite',
           props: {
             sessionId: this.sessionId,
             reciteType: payload.reciteType
@@ -96,10 +117,11 @@ export const useFlowStore = defineStore('flow', {
 
       if (payload.action === 'open-select-question') {
         this.currentStep = 'select-question';
-        this.viewMode = 'widget';
+        this.viewMode = 'small-page';
 
         return {
-          widgetType: 'select-question',
+          displayMode: 'small-page',
+          pageType: 'select-question',
           props: {
             sessionId: this.sessionId,
             source: payload.source
@@ -110,7 +132,22 @@ export const useFlowStore = defineStore('flow', {
       return null;
     },
 
-    // 进入侧屏最小化状态。
+    // 全屏页面缩放为 400 x 800 缩屏。
+    shrinkFullscreenToCompact() {
+      this.viewMode = 'compact';
+
+      return {
+        displayMode: 'compact',
+        widgetType: 'analysis-compact',
+        props: {
+          sessionId: this.sessionId,
+          questionId: this.questionId,
+          step: this.currentStep
+        }
+      };
+    },
+
+    // 进入缩屏最小化状态。
     minimizeWidget() {
       this.viewMode = 'minimized';
 
@@ -119,16 +156,16 @@ export const useFlowStore = defineStore('flow', {
       };
     },
 
-    // 从最小化按钮恢复侧屏。
+    // 从最小化按钮恢复缩屏。
     restoreWidget() {
-      this.viewMode = 'sidePanel';
+      this.viewMode = 'compact';
 
       return {
         viewMode: this.viewMode
       };
     },
 
-    // 侧屏重新进入全屏。正式流程接入时需先写入 fullscreenRoute。
+    // 缩屏重新进入全屏。正式流程接入时需先写入 fullscreenRoute。
     expandWidgetToFullscreen() {
       if (!this.fullscreenRoute) {
         return null;

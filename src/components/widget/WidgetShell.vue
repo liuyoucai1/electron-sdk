@@ -10,7 +10,7 @@
         <strong>{{ widget.title }}</strong>
         <div class="widget-actions" @pointerdown.stop>
           <button
-            v-if="variant === 'side-panel'"
+            v-if="variant === 'compact'"
             type="button"
             title="全屏"
             @click.stop="$emit('fullscreen')"
@@ -18,7 +18,7 @@
             全屏
           </button>
           <button
-            v-if="variant === 'side-panel'"
+            v-if="variant === 'compact'"
             type="button"
             title="最小化"
             @click.stop="$emit('minimize')"
@@ -49,7 +49,7 @@ const props = defineProps({
   },
   variant: {
     type: String,
-    default: 'widget'
+    default: 'compact'
   }
 });
 
@@ -86,7 +86,7 @@ const canvasStyle = computed(() => {
   };
 });
 
-// 将小屏位置限制在当前窗口内。
+// 将缩屏位置限制在当前窗口内。
 function clampPosition(x, y) {
   const scale = props.widget.scale || 1;
   const width = props.widget.width * scale;
@@ -100,7 +100,7 @@ function clampPosition(x, y) {
   };
 }
 
-// 开始拖动小屏。
+// 开始拖动缩屏。
 function onPointerDown(event) {
   dragging.value = true;
   dragStart = {
@@ -114,7 +114,7 @@ function onPointerDown(event) {
   window.addEventListener('pointerup', onPointerUp);
 }
 
-// 拖动时更新小屏坐标。
+// 拖动时更新缩屏坐标。
 function onPointerMove(event) {
   if (!dragging.value) {
     return;

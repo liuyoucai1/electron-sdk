@@ -8,7 +8,12 @@
     <ClassroomLauncher v-if="!classStarted" @start="handleStartClass" />
 
     <template v-else>
-      <FloatingBall v-if="!isFullscreenRoute" @dismiss="handleDismissClass" />
+      <FloatingBall
+        v-if="showFloatingBall"
+        @dismiss="handleDismissClass"
+        @quick-action="handleQuickAction"
+      />
+      <WidgetHost />
       <RouterView />
     </template>
   </main>
@@ -19,11 +24,21 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router';
 import ClassroomLauncher from './components/ClassroomLauncher.vue';
 import FloatingBall from './components/FloatingBall.vue';
+import WidgetHost from './components/widget/WidgetHost.vue';
+import { useFlowStore } from './stores/flow';
+import { useSmallPageStore } from './stores/smallPage';
+import { useWidgetStore } from './stores/widget';
 
 const route = useRoute();
+const flowStore = useFlowStore();
+const smallPageStore = useSmallPageStore();
+const widgetStore = useWidgetStore();
 const classStarted = ref(false);
 const classSession = ref();
 const isFullscreenRoute = computed(() => Boolean(route.meta.fullscreen));
+const showFloatingBall = computed(
+  () => !isFullscreenRoute.value && !flowStore.shouldHideFloatingBall
+);
 let updateTimer;
 let updateFrame;
 
@@ -83,6 +98,21 @@ function handleStartClass(payload) {
 function handleDismissClass() {
   classSession.value = undefined;
   classStarted.value = false;
+  flowStore.resetFlow();
+  smallPageStore.closePage();
+  widgetStore.closeWidget();
+  nextTick(scheduleInteractiveRegionUpdate);
+}
+
+// 处理悬浮球快捷入口，启动对应业务流程。
+function handleQuickAction(actionKey) {
+  if (actionKey !== 'ask') {
+    return;
+  }
+
+  const target = flowStore.startAskFlow();
+  smallPageStore.openPage(target.pageType, target.props);
+  widgetStore.closeWidget();
   nextTick(scheduleInteractiveRegionUpdate);
 }
 

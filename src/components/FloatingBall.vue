@@ -34,6 +34,7 @@
         :class="`is-${action.tone}`"
         data-overlay-hitbox="true"
         type="button"
+        @click="handleQuickAction(action.key)"
       >
         {{ action.label }}
       </button>
@@ -68,7 +69,7 @@ import {
 } from "vue";
 
 const VIEWPORT_MARGIN = 12;
-const emit = defineEmits(["dismiss"]);
+const emit = defineEmits(["dismiss", "quick-action"]);
 
 const layerRef = ref();
 const actionStackRef = ref();
@@ -153,6 +154,13 @@ function syncPositionAndHitbox() {
 function dismissClass() {
   expanded.value = false;
   emit("dismiss");
+  nextTick(notifyHitboxChanged);
+}
+
+// 触发悬浮球快捷入口，并收起展开菜单。
+function handleQuickAction(actionKey) {
+  expanded.value = false;
+  emit("quick-action", actionKey);
   nextTick(notifyHitboxChanged);
 }
 
