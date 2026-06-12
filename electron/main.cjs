@@ -132,6 +132,10 @@ function registerIpc() {
   });
 
   ipcMain.handle('app:get-version', () => app.getVersion());
+
+  ipcMain.handle('app:quit', () => {
+    app.quit();
+  });
 }
 
 app.whenReady().then(async () => {

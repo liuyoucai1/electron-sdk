@@ -215,9 +215,9 @@ function syncClassroomData() {
   document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
 }
 
-// 关闭按钮当前不退出应用，只保留视觉入口并刷新交互区域。
+// 关闭按钮退出应用。
 function closeLauncher() {
-  document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
+  window.electronBridge?.quit();
 }
 
 onMounted(() => {
