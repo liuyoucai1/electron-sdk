@@ -37,7 +37,7 @@ const classStarted = ref(false);
 const classSession = ref();
 const isFullscreenRoute = computed(() => Boolean(route.meta.fullscreen));
 const showFloatingBall = computed(
-  () => !isFullscreenRoute.value && !flowStore.shouldHideFloatingBall
+  () => !isFullscreenRoute.value && !flowStore.shouldHideFloatingBall && !smallPageStore.shouldHideFloatingBall
 );
 let updateTimer;
 let updateFrame;
@@ -104,13 +104,22 @@ function handleDismissClass() {
   nextTick(scheduleInteractiveRegionUpdate);
 }
 
-// 处理悬浮球快捷入口，启动对应业务流程。
+// 处理悬浮球快捷入口，启动对应业务流程；已打开时再次点击则关闭。
 function handleQuickAction(actionKey) {
   if (actionKey !== 'ask') {
     return;
   }
 
   const target = flowStore.startAskFlow();
+
+  // 再次点击"问"时关闭当前普通小屏，回到 idle。
+  if (target.viewMode === 'idle') {
+    smallPageStore.closePage();
+    widgetStore.closeWidget();
+    nextTick(scheduleInteractiveRegionUpdate);
+    return;
+  }
+
   smallPageStore.openPage(target.pageType, target.props);
   widgetStore.closeWidget();
   nextTick(scheduleInteractiveRegionUpdate);

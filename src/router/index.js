@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import AskFullscreenView from '../views/ask/AskFullscreenView.vue';
+import ObjectiveQuestionDetail from '../views/ask/ObjectiveQuestionDetail.vue';
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -14,6 +15,14 @@ const router = createRouter({
       path: '/ask/fullscreen',
       name: 'ask-fullscreen',
       component: AskFullscreenView,
+      meta: {
+        fullscreen: true
+      }
+    },
+    {
+      path: '/ask/objective-detail',
+      name: 'ask-objective-detail',
+      component: ObjectiveQuestionDetail,
       meta: {
         fullscreen: true
       }

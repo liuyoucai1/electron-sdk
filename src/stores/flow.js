@@ -6,11 +6,19 @@ const INITIAL_STATE = {
   viewMode: 'idle',
   sessionId: null,
   questionId: null,
+  questionType: null,
   batchId: null,
   currentQuestionIndex: 0,
   nextStep: null,
   nextViewMode: null,
-  fullscreenRoute: null
+  fullscreenRoute: null,
+  // 记录 AnswerProgressWidget 是从哪个入口打开的，
+  // 用于”结束答题”时决定跳转到不同的详情页。
+  // 取值示例：'ask-entry' | 'fullscreen-analysis' | 'multi-question'
+  answerProgressEntry: null,
+  // 记录最小化之前的状态，用于 restore 时判断回到哪里。
+  // 'compact' | 'fullscreen' | null
+  minimizedFrom: null
 };
 
 export const useFlowStore = defineStore('flow', {
@@ -22,11 +30,17 @@ export const useFlowStore = defineStore('flow', {
     isFullscreen: (state) => state.viewMode === 'fullscreen',
     isSmallPageVisible: (state) => state.viewMode === 'small-page',
     isCompactVisible: (state) => ['compact', 'minimized'].includes(state.viewMode),
-    shouldHideFloatingBall: (state) => state.viewMode !== 'idle'
+    // 小屏显示时胶囊保持可见，作为小屏的定位锚点；全屏/缩屏/最小化时隐藏。
+    shouldHideFloatingBall: (state) => ['fullscreen', 'compact', 'minimized'].includes(state.viewMode)
   },
   actions: {
-    // 从悬浮球进入“问”线路入口小屏。
+    // 从悬浮球进入”问”线路入口小屏；若已在小屏入口则返回 toggle 关闭信号。
     startAskFlow() {
+      // 再次点击”问”时关闭当前普通小屏，回到 idle。
+      if (this.activeFlow === 'ask' && this.currentStep === 'ask-entry' && this.viewMode === 'small-page') {
+        return this.resetFlow();
+      }
+
       this.activeFlow = 'ask';
       this.currentStep = 'ask-entry';
       this.viewMode = 'small-page';
@@ -61,8 +75,22 @@ export const useFlowStore = defineStore('flow', {
         this.currentStep = 'answer-progress';
         this.viewMode = 'small-page';
         this.questionId = payload.questionId || null;
-        this.nextStep = 'single-analysis';
-        this.nextViewMode = 'fullscreen';
+        this.questionType = payload.questionType || null;
+
+        // 记录入口来源，供”结束答题”时决定跳转目标。
+        this.answerProgressEntry = payload.entrySource || 'ask-entry';
+
+        // 根据入口来源预设结束后的跳转目标。
+        const entryRouteMap = {
+          'ask-entry': { nextStep: 'single-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/objective-detail' },
+          'fullscreen-analysis': { nextStep: 'single-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/objective-detail' },
+          'multi-question': { nextStep: 'batch-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/objective-detail' }
+        };
+
+        const target = entryRouteMap[this.answerProgressEntry] || entryRouteMap['ask-entry'];
+        this.nextStep = target.nextStep;
+        this.nextViewMode = target.nextViewMode;
+        this.fullscreenRoute = target.fullscreenRoute;
 
         return {
           displayMode: 'small-page',
@@ -70,21 +98,42 @@ export const useFlowStore = defineStore('flow', {
           props: {
             sessionId: this.sessionId,
             questionType: payload.questionType,
-            optionCount: payload.optionCount
+            optionCount: payload.optionCount,
+            entrySource: this.answerProgressEntry
           }
         };
       }
 
       if (payload.action === 'finish-answering') {
-        this.currentStep = this.nextStep || 'single-analysis';
-        this.viewMode = this.nextViewMode || 'fullscreen';
+        // 根据入口来源决定结束后的跳转目标。
+        // entrySource 在 open-answer-progress 时写入，此处消费后清空。
+        const entry = this.answerProgressEntry || 'ask-entry';
+
+        const finishRouteMap = {
+          'ask-entry': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' },
+          'fullscreen-analysis': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' },
+          'multi-question': { step: 'batch-analysis', mode: 'fullscreen', route: '/ask/objective-detail' }
+        };
+
+        const target = finishRouteMap[entry] || finishRouteMap['ask-entry'];
+
+        this.currentStep = target.step;
+        this.viewMode = target.mode;
+        this.fullscreenRoute = target.route;
         this.nextStep = null;
         this.nextViewMode = null;
-        this.fullscreenRoute = '/ask/fullscreen';
+
+        const query = {
+          entrySource: entry,
+          questionType: this.questionType || ''
+        };
+
+        this.answerProgressEntry = null;
 
         return {
           displayMode: 'fullscreen',
-          route: this.fullscreenRoute
+          route: this.fullscreenRoute,
+          query
         };
       }
 
@@ -147,8 +196,9 @@ export const useFlowStore = defineStore('flow', {
       };
     },
 
-    // 进入缩屏最小化状态。
+    // 缩屏 → 最小化。
     minimizeWidget() {
+      this.minimizedFrom = 'compact';
       this.viewMode = 'minimized';
 
       return {
@@ -156,9 +206,34 @@ export const useFlowStore = defineStore('flow', {
       };
     },
 
-    // 从最小化按钮恢复缩屏。
+    // 全屏路由 → 最小化。
+    // 由全屏页面调用，返回标题信息用于创建 taskbar 触发按钮。
+    minimizeFullscreen(title) {
+      this.minimizedFrom = 'fullscreen';
+      this.viewMode = 'minimized';
+
+      return {
+        viewMode: this.viewMode,
+        widgetType: 'analysis-compact',
+        widgetTitle: title || '答题分析'
+      };
+    },
+
+    // 从最小化按钮恢复。
     restoreWidget() {
+      if (this.minimizedFrom === 'fullscreen') {
+        this.viewMode = 'fullscreen';
+        this.minimizedFrom = null;
+
+        return {
+          viewMode: this.viewMode,
+          route: this.fullscreenRoute
+        };
+      }
+
+      // 默认：从缩屏最小化恢复 → 回到 compact。
       this.viewMode = 'compact';
+      this.minimizedFrom = null;
 
       return {
         viewMode: this.viewMode

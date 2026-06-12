@@ -67,6 +67,7 @@ import {
   ref,
   watch,
 } from "vue";
+import { useSmallPageStore } from "../stores/smallPage";
 
 const VIEWPORT_MARGIN = 12;
 const emit = defineEmits(["dismiss", "quick-action"]);
@@ -75,6 +76,7 @@ const layerRef = ref();
 const actionStackRef = ref();
 const expanded = ref(false);
 const dragging = ref(false);
+const smallPageStore = useSmallPageStore();
 const position = reactive({
   x: window.innerWidth - 112,
   y: window.innerHeight - 130,
@@ -144,9 +146,11 @@ function notifyHitboxChanged() {
   document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
 }
 
-// 同步位置边界和可交互区域。
+// 同步位置边界、可交互区域，并通知 smallPageStore 胶囊中心位置。
 function syncPositionAndHitbox() {
   clampPosition();
+  // 主球体 90x90，位于 96x96 层的左下角，计算球体中心供普通小屏定位。
+  smallPageStore.updateBallPosition(position.x + 45, position.y + 51);
   notifyHitboxChanged();
 }
 
@@ -157,9 +161,8 @@ function dismissClass() {
   nextTick(notifyHitboxChanged);
 }
 
-// 触发悬浮球快捷入口，并收起展开菜单。
+// 触发悬浮球快捷入口，保持展开状态不收起。
 function handleQuickAction(actionKey) {
-  expanded.value = false;
   emit("quick-action", actionKey);
   nextTick(notifyHitboxChanged);
 }
