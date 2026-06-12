@@ -53,61 +53,14 @@
           </div>
         </div>
 
-        <!-- 作答分布看板 -->
-        <div class="distribution-section">
-          <div class="section-header">
-            <span class="section-title">作答分布</span>
-            <span class="section-subtitle">设置答案后显示正误</span>
-          </div>
-
-          <div class="distribution-list">
-            <div
-              v-for="dist in distributions"
-              :key="dist.label"
-              class="dist-item"
-            >
-              <div
-                class="dist-row"
-                @click="handleViewStudentList(dist.label)"
-              >
-                <span class="dist-badge">{{ dist.label }}</span>
-                <div class="progress-track">
-                  <div
-                    class="progress-bar"
-                    :style="{ width: dist.percent + '%' }"
-                  ></div>
-                </div>
-                <div class="dist-meta">
-                  <span class="count">{{ dist.count }}人</span>
-                  <span class="percent">{{ dist.percent }}%</span>
-                </div>
-                <span class="arrow-down" :class="{ expanded: expandedLabel === dist.label }">▼</span>
-              </div>
-
-              <!-- 展开的学生名单 -->
-              <transition name="student-list-fade">
-                <div
-                  v-if="expandedLabel === dist.label"
-                  class="student-list-panel"
-                >
-                  <span
-                    v-for="name in studentListMap[dist.label]"
-                    :key="name"
-                    class="student-tag"
-                  >
-                    {{ name }}
-                  </span>
-                </div>
-              </transition>
-            </div>
-          </div>
-
-          <!-- 底部提示 -->
-          <div class="info-tip">
-            <span class="info-icon">ⓘ</span>
-            点击选项可以查看作答学生名单
-          </div>
-        </div>
+        <ObjectiveQuestionDistribution
+          :distributions="distributions"
+          :get-status="getDistributionStatus"
+          :expanded-label="expandedLabel"
+          :student-list-map="studentListMap"
+          :has-answer-set="hasAnswerSet"
+          @toggle-student-list="handleViewStudentList"
+        />
       </div>
     </div>
 
@@ -181,12 +134,24 @@
         <button class="btn btn-close" @click="handleClose">✕</button>
       </div>
     </div>
+
+    <SetSingleAnswerDialog
+      v-model="showSetAnswerDialog"
+      :question-index="currentPage"
+      :question-type="currentQuestionMeta.type"
+      :type-label="currentQuestionMeta.typeLabel"
+      :option-count="currentOptionCount"
+      :initial-answer="currentSavedAnswer"
+      @confirm="handleAnswerConfirm"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import ObjectiveQuestionDistribution from "./components/ObjectiveQuestionDistribution.vue";
+import SetSingleAnswerDialog from "./components/SetSingleAnswerDialog.vue";
+import { useObjectiveQuestionAnalysis } from "./composables/useObjectiveQuestionAnalysis";
 import { useFlowStore } from "../../stores/flow";
 import { useSmallPageStore } from "../../stores/smallPage";
 import { useWidgetStore } from "../../stores/widget";
@@ -197,185 +162,75 @@ const flowStore = useFlowStore();
 const smallPageStore = useSmallPageStore();
 const widgetStore = useWidgetStore();
 
-// ---------- 入口判定 ----------
-// 'ask-entry' → 从客观题即兴提问进入，单道题，无翻页无返回
-// 'multi-question' → 从多题提问进入，多道题，有翻页有返回
-const isMultiQuestion = computed(
-  () => route.query.entrySource === "multi-question",
-);
+const {
+  isMultiQuestion,
+  currentPage,
+  totalPages,
+  questionTypeLabel,
+  currentQuestionMeta,
+  currentOptionCount,
+  questionStem,
+  options,
+  answeredCount,
+  totalStudents,
+  distributions,
+  showSetAnswerDialog,
+  currentSavedAnswer,
+  hasAnswerSet,
+  expandedLabel,
+  studentListMap,
+  changePage,
+  handleViewStudentList,
+  handleSetAnswers,
+  handleAnswerConfirm,
+  getDistributionStatus,
+  persistAnalysisState,
+  querySource,
+} = useObjectiveQuestionAnalysis({ route });
 
-// ---------- 题目数据（两套 mock） ----------
-const currentPage = ref(Number(route.query.questionIndex || 0) + 1);
-const totalPages = ref(isMultiQuestion.value ? 4 : 1);
-
-const questionTypeLabel = computed(() => {
-  const typeMap = { 2: "单选", 3: "多选", 4: "判断", 20: "数值" };
-  return typeMap[route.query.questionType] || "单选";
-});
-
-// 单题 mock
-const singleQuestion = {
-  stem: "Which sentence uses the present perfect tense correctly?",
-  options: [
-    { key: "A", text: "She has went to the store." },
-    { key: "B", text: "They have finished their homework." },
-    { key: "C", text: "He have seen that movie already." },
-    { key: "D", text: "We has been to Paris twice." },
-  ],
-  answered: 26,
-  total: 30,
-  distributions: [
-    { label: "A", count: 8, percent: 27 },
-    { label: "B", count: 5, percent: 17 },
-    { label: "C", count: 11, percent: 37 },
-    { label: "D", count: 2, percent: 7 },
-    { label: "未答", count: 4, percent: 13 },
-  ],
-};
-
-// 多题 mock（4 道题）
-const multiQuestions = [
-  {
-    stem: "Which sentence uses the present perfect tense correctly?",
-    options: [
-      { key: "A", text: "She has went to the store." },
-      { key: "B", text: "They have finished their homework." },
-      { key: "C", text: "He have seen that movie already." },
-      { key: "D", text: "We has been to Paris twice." },
-    ],
-    answered: 26,
-    total: 30,
-    distributions: [
-      { label: "A", count: 8, percent: 27 },
-      { label: "B", count: 5, percent: 17 },
-      { label: "C", count: 11, percent: 37 },
-      { label: "D", count: 2, percent: 7 },
-      { label: "未答", count: 4, percent: 13 },
-    ],
-  },
-  {
-    stem: "What is the capital of France?",
-    options: [
-      { key: "A", text: "London" },
-      { key: "B", text: "Berlin" },
-      { key: "C", text: "Paris" },
-      { key: "D", text: "Madrid" },
-    ],
-    answered: 28,
-    total: 30,
-    distributions: [
-      { label: "A", count: 2, percent: 7 },
-      { label: "B", count: 1, percent: 3 },
-      { label: "C", count: 22, percent: 73 },
-      { label: "D", count: 3, percent: 10 },
-      { label: "未答", count: 2, percent: 7 },
-    ],
-  },
-  {
-    stem: 'Who wrote "Romeo and Juliet"?',
-    options: [
-      { key: "A", text: "Charles Dickens" },
-      { key: "B", text: "William Shakespeare" },
-      { key: "C", text: "Jane Austen" },
-      { key: "D", text: "Mark Twain" },
-    ],
-    answered: 30,
-    total: 30,
-    distributions: [
-      { label: "A", count: 3, percent: 10 },
-      { label: "B", count: 24, percent: 80 },
-      { label: "C", count: 2, percent: 7 },
-      { label: "D", count: 1, percent: 3 },
-      { label: "未答", count: 0, percent: 0 },
-    ],
-  },
-  {
-    stem: "What is the chemical symbol for water?",
-    options: [
-      { key: "A", text: "CO2" },
-      { key: "B", text: "H2O" },
-      { key: "C", text: "NaCl" },
-      { key: "D", text: "O2" },
-    ],
-    answered: 25,
-    total: 30,
-    distributions: [
-      { label: "A", count: 3, percent: 10 },
-      { label: "B", count: 17, percent: 57 },
-      { label: "C", count: 3, percent: 10 },
-      { label: "D", count: 2, percent: 7 },
-      { label: "未答", count: 5, percent: 16 },
-    ],
-  },
-];
-
-// 当前题目数据
-const currentQuestion = computed(() => {
-  if (isMultiQuestion.value) {
-    const idx = Math.min(currentPage.value - 1, multiQuestions.length - 1);
-    return multiQuestions[idx];
-  }
-  return singleQuestion;
-});
-
-const questionStem = computed(() => currentQuestion.value.stem);
-const options = computed(() => currentQuestion.value.options);
-const answeredCount = computed(() => currentQuestion.value.answered);
-const totalStudents = computed(() => currentQuestion.value.total);
-const distributions = computed(() => currentQuestion.value.distributions);
-
-// ---------- 交互方法 ----------
-function changePage(step) {
-  const target = currentPage.value + step;
-  if (target >= 1 && target <= totalPages.value) {
-    currentPage.value = target;
-  }
-}
-
+// 点击主面板选项（后续接入讲评交互）。
 function handleOptionSelect(key) {
   console.log(`点击了主面板选项: ${key}`);
 }
 
-// 展开的学生名单：记录当前展开的选项 label，null 表示全部收起。
-const expandedLabel = ref(null);
-
-// mock：每个选项对应的学生名单。
-const studentListMap = {
-  A: ["张伟", "李娜", "王芳", "陈静", "赵鑫", "刘洋", "周婷", "吴磊"],
-  B: ["孙明", "马丽", "郑爽", "高峰"],
-  C: ["黄晓", "林黛", "何炅", "谢娜", "邓超", "杨幂", "胡歌", "刘涛", "赵薇", "周迅", "陈坤"],
-  D: ["吴京", "徐峥"],
-  未答: ["沈腾", "贾玲", "黄渤", "王宝强"],
-};
-
-// 点击选项 → 展开/收起学生名单。
-// 同一选项再点一次收起；点击不同选项则切换展开目标。
-function handleViewStudentList(label) {
-  if (expandedLabel.value === label) {
-    expandedLabel.value = null;
-  } else {
-    expandedLabel.value = label;
-  }
-}
-
-function handleSetAnswers() {
-  console.log("触发设置本题正确答案面板");
-}
-
-// 缩屏：回到 overlay 层并打开 compact widget。
+// 缩屏：保存分析状态并打开缩屏 widget。
 async function handleShrink() {
+  flowStore.fullscreenRoute = "/ask/objective-detail";
+  persistAnalysisState();
+
   const target = flowStore.shrinkFullscreenToCompact();
   smallPageStore.closePage();
-  widgetStore.openWidget(target.widgetType, target.props);
+  widgetStore.openWidget(target.widgetType, {
+    ...target.props,
+    routeQuery: { ...querySource.value },
+  });
   await router.replace("/");
 }
 
-// 返回：回到 answer-progress 小屏。
+// 返回：回到进入单题分析前的全屏页（如多题批次分析），不中断问业务流程。
 async function handleBack() {
-  const target = flowStore.handleAskWidgetAction({ action: "close-flow" });
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  const returnTo = route.query.returnTo;
+  if (typeof returnTo === "string" && returnTo) {
+    flowStore.viewMode = "fullscreen";
+    flowStore.fullscreenRoute = returnTo;
+    flowStore.currentStep =
+      returnTo === "/ask/multi-batch-analysis"
+        ? "batch-analysis"
+        : "single-analysis";
+
+    const query = {};
+    if (route.query.entrySource) {
+      query.entrySource = route.query.entrySource;
+    }
+    if (route.query.batchSize || flowStore.batchSize) {
+      query.batchSize = String(route.query.batchSize || flowStore.batchSize);
+    }
+
+    await router.push({ path: returnTo, query });
+    return;
+  }
+
+  await router.back();
 }
 
 // 最小化：从全屏路由缩小到右侧 taskbar 触发按钮。
@@ -584,157 +439,6 @@ async function handleClose() {
       font-size: 11px;
       color: #94a3b8;
     }
-  }
-}
-
-/* 作答分布区块 */
-.distribution-section {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .section-header {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    border-left: 3px solid #529b85;
-    padding-left: 8px;
-
-    .section-title {
-      font-size: 14px;
-      font-weight: bold;
-      color: #334155;
-    }
-
-    .section-subtitle {
-      font-size: 11px;
-      color: #94a3b8;
-    }
-  }
-}
-
-.distribution-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.dist-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.dist-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  padding: 4px 0;
-  border-radius: 6px;
-  transition: background-color 0.15s;
-
-  &:hover {
-    background-color: #f8fafc;
-  }
-
-  .dist-badge {
-    background-color: #f1f5f9;
-    color: #64748b;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: bold;
-  }
-
-  .progress-track {
-    flex: 1;
-    background-color: #f1f5f9;
-    border-radius: 6px;
-    height: 18px;
-    overflow: hidden;
-  }
-
-  .progress-bar {
-    height: 100%;
-    background-color: #b7dbd1;
-    border-radius: 6px;
-    transition: width 0.3s;
-  }
-
-  .dist-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    width: 44px;
-
-    .count {
-      font-size: 12px;
-      font-weight: bold;
-      color: #334155;
-    }
-
-    .percent {
-      font-size: 10px;
-      color: #94a3b8;
-    }
-  }
-
-  .arrow-down {
-    font-size: 8px;
-    color: #cbd5e1;
-    transition: transform 0.2s;
-
-    &.expanded {
-      transform: rotate(180deg);
-    }
-  }
-}
-
-/* 展开的学生名单面板 */
-.student-list-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 0 8px 34px;
-}
-
-.student-tag {
-  display: inline-block;
-  padding: 3px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 11px;
-  color: #475569;
-  background-color: #ffffff;
-}
-
-/* 名单展开/收起过渡 */
-.student-list-fade-enter-active,
-.student-list-fade-leave-active {
-  transition: all 0.2s ease;
-}
-
-.student-list-fade-enter-from,
-.student-list-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-4px);
-}
-
-/* 提示条 */
-.info-tip {
-  margin-top: 8px;
-  font-size: 11px;
-  color: #94a3b8;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  .info-icon {
-    font-size: 12px;
   }
 }
 

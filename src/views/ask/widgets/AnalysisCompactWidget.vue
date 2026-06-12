@@ -1,99 +1,232 @@
 <template>
-  <section class="analysis-compact">
-    <header>
-      <p>答题分析</p>
-      <strong>86%</strong>
-    </header>
+  <CompactWidgetLayout
+    :title="compactTitle"
+    :subtitle="currentQuestionMeta.typeLabel"
+    :show-back="showCompactBack"
+    @fullscreen="$emit('fullscreen')"
+    @back="handleCompactBack"
+    @minimize="$emit('minimize')"
+    @close="$emit('close')"
+  >
+    <section class="compact-analysis">
+      <div class="question-card">
+        <div class="question-type-bar">
+          <span class="index-circle">{{ currentPage }}</span>
+          <span class="type-text">{{ currentQuestionMeta.typeLabel }}</span>
+        </div>
 
-    <main>
-      <article v-for="item in resultItems" :key="item.label">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-      </article>
-    </main>
-  </section>
+        <h2 class="question-stem">{{ questionStem }}</h2>
+
+        <div class="option-chips">
+          <span
+            v-for="opt in options"
+            :key="opt.key"
+            class="option-chip"
+          >{{ opt.key }}</span>
+        </div>
+      </div>
+
+      <ObjectiveQuestionDistribution
+        compact
+        :distributions="distributions"
+        :get-status="getDistributionStatus"
+        :expanded-label="expandedLabel"
+        :student-list-map="studentListMap"
+        :has-answer-set="hasAnswerSet"
+        @toggle-student-list="handleViewStudentList"
+      />
+
+      <div v-if="isMultiQuestion" class="pagination-bar">
+        <button
+          type="button"
+          class="btn-pagination"
+          :disabled="currentPage === 1"
+          @click="changePage(-1)"
+        >
+          &lt; 上一题
+        </button>
+        <span class="page-indicator">{{ currentPage }} / {{ totalPages }}</span>
+        <button
+          type="button"
+          class="btn-pagination"
+          :disabled="currentPage === totalPages"
+          @click="changePage(1)"
+        >
+          下一题 &gt;
+        </button>
+      </div>
+    </section>
+
+    <template #actions>
+      <button class="btn-primary" type="button" @click="handleSetAnswers">
+        设置答案
+      </button>
+    </template>
+  </CompactWidgetLayout>
+
+  <SetSingleAnswerDialog
+    v-model="showSetAnswerDialog"
+    compact
+    :question-index="currentPage"
+    :question-type="currentQuestionMeta.type"
+    :type-label="currentQuestionMeta.typeLabel"
+    :option-count="currentOptionCount"
+    :initial-answer="currentSavedAnswer"
+    @confirm="handleAnswerConfirm"
+  />
 </template>
 
 <script setup>
-defineProps({
+import CompactWidgetLayout from "../../../components/widget/CompactWidgetLayout.vue";
+import ObjectiveQuestionDistribution from "../components/ObjectiveQuestionDistribution.vue";
+import SetSingleAnswerDialog from "../components/SetSingleAnswerDialog.vue";
+import { useObjectiveQuestionAnalysis } from "../composables/useObjectiveQuestionAnalysis";
+
+const props = defineProps({
   sessionId: {
     type: String,
-    default: ''
+    default: "",
   },
   questionId: {
     type: String,
-    default: ''
+    default: "",
   },
   step: {
     type: String,
-    default: ''
-  }
+    default: "",
+  },
+  routeQuery: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
-const resultItems = [
-  { label: '已答人数', value: '42' },
-  { label: '平均用时', value: '38 秒' },
-  { label: '待讲评', value: 'B' }
-];
+defineEmits(["fullscreen", "minimize", "close"]);
+
+const {
+  isMultiQuestion,
+  showCompactBack,
+  currentPage,
+  totalPages,
+  currentQuestionMeta,
+  currentOptionCount,
+  questionStem,
+  options,
+  distributions,
+  showSetAnswerDialog,
+  currentSavedAnswer,
+  hasAnswerSet,
+  expandedLabel,
+  studentListMap,
+  compactTitle,
+  changePage,
+  handleViewStudentList,
+  handleSetAnswers,
+  handleAnswerConfirm,
+  getDistributionStatus,
+  handleCompactBack,
+} = useObjectiveQuestionAnalysis({
+  widgetProps: props,
+});
 </script>
 
 <style scoped lang="scss">
-.analysis-compact {
-  display: grid;
-  grid-template-rows: auto 1fr;
-  height: 100%;
-  padding: 24px;
-  background: #ffffff;
+.compact-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 12px 0 8px;
 }
 
-header {
-  display: grid;
-  justify-items: center;
-  gap: 12px;
-  padding: 28px 0 32px;
-  border-radius: 8px;
-  background: var(--ez-p50);
-
-  p {
-    margin: 0;
-    color: var(--ez-p600);
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  strong {
-    color: var(--ez-p700);
-    font-size: 64px;
-    letter-spacing: 0;
-    line-height: 1;
-  }
+.question-card {
+  background: var(--ez-n100);
+  border-radius: 14px;
+  padding: 14px;
 }
 
-main {
-  display: grid;
-  gap: 12px;
-  align-content: start;
-  margin-top: 22px;
-}
-
-article {
+.question-type-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 76px;
-  padding: 0 18px;
-  border-radius: 8px;
-  background: var(--ez-n50);
+  gap: 8px;
+  margin-bottom: 10px;
 
-  span {
+  .index-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--ez-p500);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+  }
+
+  .type-text {
+    font-size: 12px;
+    font-weight: 700;
     color: var(--ez-n600);
-    font-size: 17px;
   }
+}
 
-  strong {
-    color: var(--ez-n950);
-    font-size: 21px;
-    letter-spacing: 0;
+.question-stem {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ez-n900);
+  line-height: 1.45;
+}
+
+.option-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-chip {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--ez-n200);
+  background: #ffffff;
+  color: var(--ez-n700);
+  font-size: 14px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.btn-pagination {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ez-n200);
+  background: #ffffff;
+  color: var(--ez-n700);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
+}
+
+.page-indicator {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ez-n600);
+  min-width: 48px;
+  text-align: center;
 }
 </style>

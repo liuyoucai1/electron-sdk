@@ -2,7 +2,13 @@ import { defineStore } from "pinia";
 
 const WIDGET_PRESETS = {
   "analysis-compact": {
-    title: "答题分析",
+    title: "题目分析",
+    width: 400,
+    height: 800,
+    position: "right",
+  },
+  "multi-batch-compact": {
+    title: "多题答题分析",
     width: 400,
     height: 800,
     position: "right",
@@ -21,7 +27,7 @@ export const useWidgetStore = defineStore("widget", {
   }),
   actions: {
     // 根据业务步骤打开对应缩屏，并一次性写入尺寸位置。
-    openWidget(type, props = {}) {
+    openWidget(type, props = {}, options = {}) {
       const preset = WIDGET_PRESETS[type];
 
       if (!preset) {
@@ -29,7 +35,9 @@ export const useWidgetStore = defineStore("widget", {
         return;
       }
 
-      const scale = this.resolveScale(preset);
+      const prev = this.activeWidget;
+      const preservePosition = Boolean(options.preservePosition && prev);
+      const scale = preservePosition ? prev.scale : this.resolveScale(preset);
       const viewportWidth = window.innerWidth || 1920;
       const viewportHeight = window.innerHeight || 1080;
       const defaultX =
@@ -51,8 +59,8 @@ export const useWidgetStore = defineStore("widget", {
         type,
         mode: "compact",
         title: preset.title,
-        x: Math.max(24, defaultX),
-        y: Math.max(24, defaultY),
+        x: preservePosition ? prev.x : Math.max(24, defaultX),
+        y: preservePosition ? prev.y : Math.max(24, defaultY),
         width: preset.width,
         height: preset.height,
         minWidth: preset.minWidth || preset.width,

@@ -21,6 +21,7 @@
   "license": "MIT",
   "dependencies": {
     "@vitejs/plugin-vue": "^5.2.4",
+    "echarts": "^6.1.0",
     "element-plus": "^2.14.1",
     "pinia": "^2.3.1",
     "sass": "^1.100.0",

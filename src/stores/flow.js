@@ -8,10 +8,19 @@ const INITIAL_STATE = {
   questionId: null,
   questionType: null,
   batchId: null,
+  // 多题提问的题目数量，结束答题后透传给批量分析页决定翻页总数。
+  batchSize: null,
   currentQuestionIndex: 0,
   nextStep: null,
   nextViewMode: null,
   fullscreenRoute: null,
+  fullscreenQuery: null,
+  // 单题客观题分析页状态，供全屏与缩屏切换共享。
+  objectiveAnalysisState: null,
+  // 多题批次分析页状态，供全屏与缩屏切换共享。
+  batchAnalysisState: null,
+  // 缩屏子页返回栈：从多题列表缩屏进入单题分析缩屏时记录父级 widget。
+  compactParent: null,
   // 记录 AnswerProgressWidget 是从哪个入口打开的，
   // 用于”结束答题”时决定跳转到不同的详情页。
   // 取值示例：'ask-entry' | 'fullscreen-analysis' | 'multi-question'
@@ -76,6 +85,7 @@ export const useFlowStore = defineStore('flow', {
         this.viewMode = 'small-page';
         this.questionId = payload.questionId || null;
         this.questionType = payload.questionType || null;
+        this.batchSize = payload.questionCount || null;
 
         // 记录入口来源，供”结束答题”时决定跳转目标。
         this.answerProgressEntry = payload.entrySource || 'ask-entry';
@@ -84,7 +94,7 @@ export const useFlowStore = defineStore('flow', {
         const entryRouteMap = {
           'ask-entry': { nextStep: 'single-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/objective-detail' },
           'fullscreen-analysis': { nextStep: 'single-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/objective-detail' },
-          'multi-question': { nextStep: 'batch-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/objective-detail' }
+          'multi-question': { nextStep: 'batch-analysis', nextViewMode: 'fullscreen', fullscreenRoute: '/ask/multi-batch-analysis' }
         };
 
         const target = entryRouteMap[this.answerProgressEntry] || entryRouteMap['ask-entry'];
@@ -112,7 +122,7 @@ export const useFlowStore = defineStore('flow', {
         const finishRouteMap = {
           'ask-entry': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' },
           'fullscreen-analysis': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' },
-          'multi-question': { step: 'batch-analysis', mode: 'fullscreen', route: '/ask/objective-detail' }
+          'multi-question': { step: 'batch-analysis', mode: 'fullscreen', route: '/ask/multi-batch-analysis' }
         };
 
         const target = finishRouteMap[entry] || finishRouteMap['ask-entry'];
@@ -125,7 +135,8 @@ export const useFlowStore = defineStore('flow', {
 
         const query = {
           entrySource: entry,
-          questionType: this.questionType || ''
+          questionType: this.questionType || '',
+          batchSize: this.batchSize || ''
         };
 
         this.answerProgressEntry = null;
@@ -184,10 +195,16 @@ export const useFlowStore = defineStore('flow', {
     // 全屏页面缩放为 400 x 800 缩屏。
     shrinkFullscreenToCompact() {
       this.viewMode = 'compact';
+      const isBatchAnalysis =
+        this.currentStep === 'batch-analysis' ||
+        this.fullscreenRoute === '/ask/multi-batch-analysis';
+      const widgetType = isBatchAnalysis
+        ? 'multi-batch-compact'
+        : 'analysis-compact';
 
       return {
         displayMode: 'compact',
-        widgetType: 'analysis-compact',
+        widgetType,
         props: {
           sessionId: this.sessionId,
           questionId: this.questionId,
@@ -227,7 +244,8 @@ export const useFlowStore = defineStore('flow', {
 
         return {
           viewMode: this.viewMode,
-          route: this.fullscreenRoute
+          route: this.fullscreenRoute,
+          query: this.fullscreenQuery || {}
         };
       }
 
@@ -247,10 +265,56 @@ export const useFlowStore = defineStore('flow', {
       }
 
       this.viewMode = 'fullscreen';
+      this.compactParent = null;
+
+      if (this.fullscreenRoute === '/ask/multi-batch-analysis') {
+        this.currentStep = 'batch-analysis';
+      } else if (this.fullscreenRoute === '/ask/objective-detail') {
+        this.currentStep = 'single-analysis';
+      }
 
       return {
         viewMode: this.viewMode,
-        route: this.fullscreenRoute
+        route: this.fullscreenRoute,
+        query: this.fullscreenQuery || {}
+      };
+    },
+
+    // 保存单题客观题分析上下文，供缩屏与全屏共享。
+    saveObjectiveAnalysisState(payload) {
+      this.objectiveAnalysisState = payload;
+    },
+
+    // 保存多题批次分析上下文，供缩屏与全屏共享。
+    saveBatchAnalysisState(payload) {
+      this.batchAnalysisState = payload;
+    },
+
+    // 记录缩屏父级 widget，供单题分析缩屏「返回」时恢复。
+    saveCompactParent(payload) {
+      this.compactParent = payload;
+    },
+
+    // 从单题分析缩屏返回到父级缩屏（如多题答题分析列表）。
+    returnToCompactParent() {
+      const parent = this.compactParent;
+      if (!parent) {
+        return null;
+      }
+
+      this.compactParent = null;
+      this.viewMode = 'compact';
+
+      if (parent.widgetType === 'multi-batch-compact') {
+        this.currentStep = 'batch-analysis';
+        this.fullscreenRoute = '/ask/multi-batch-analysis';
+        this.fullscreenQuery = this.batchAnalysisState?.routeQuery || {};
+      }
+
+      return {
+        widgetType: parent.widgetType,
+        props: parent.props,
+        position: parent.position || null
       };
     },
 

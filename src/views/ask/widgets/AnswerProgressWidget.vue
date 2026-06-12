@@ -101,24 +101,13 @@ const props = defineProps({
 
 const emit = defineEmits(["flow-action"]);
 
-// 收起/展开状态。默认收起，初始以 200 高度打开。
+// 收起/展开状态。默认收起，高度随内容自适应，展开后由外壳 maxHeight(500) 限制并内部滚动。
 const collapsed = ref(true);
 
-const COLLAPSED_HEIGHT = 160;
-const EXPANDED_HEIGHT = 500;
-
+// 切换学生网格显隐，外壳高度自动适应内容，无需手动指定高度。
 function toggleCollapse() {
   collapsed.value = !collapsed.value;
-
-  emit("flow-action", {
-    action: collapsed.value ? "collapse-small-page" : "expand-small-page",
-    collapsedHeight: COLLAPSED_HEIGHT,
-    expandedHeight: EXPANDED_HEIGHT,
-  });
 }
-
-// 学生网格可见状态（已合并到 collapse 逻辑中，保留 isGridVisible 兼容）。
-const isGridVisible = ref(true);
 
 // 模拟学生名单。
 const modifyingStudents = ref(["张三", "李四", "王五", "赵六", "孙七", "小明"]);
@@ -182,8 +171,9 @@ function handleClose() {
 .answer-progress {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  height: 100%;
   background: #ffffff;
   border-radius: 16px;
   overflow: hidden;

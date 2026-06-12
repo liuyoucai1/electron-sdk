@@ -1,4 +1,5 @@
 import AnalysisCompactWidget from '../../views/ask/widgets/AnalysisCompactWidget.vue';
+import MultiBatchCompactWidget from '../../views/ask/widgets/MultiBatchCompactWidget.vue';
 import AnswerProgressWidget from '../../views/ask/widgets/AnswerProgressWidget.vue';
 import AskEntryWidget from '../../views/ask/widgets/AskEntryWidget.vue';
 import MultiQuestionWidget from '../../views/ask/widgets/MultiQuestionWidget.vue';
@@ -7,6 +8,7 @@ import SelectQuestionWidget from '../../views/ask/widgets/SelectQuestionWidget.v
 
 export const widgetRegistry = {
   'analysis-compact': AnalysisCompactWidget,
+  'multi-batch-compact': MultiBatchCompactWidget,
   'ask-entry': AskEntryWidget,
   'answer-progress': AnswerProgressWidget,
   'multi-question': MultiQuestionWidget,

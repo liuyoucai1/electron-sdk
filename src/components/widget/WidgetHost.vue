@@ -1,8 +1,9 @@
 <template>
   <section
     v-if="flowStore.viewMode === 'small-page' && currentSmallPage"
+    ref="hostEl"
     class="small-page-host"
-    :class="{ 'is-draggable': isDraggablePage }"
+    :class="{ 'is-draggable': isDraggablePage, 'is-content-height': isContentHeight }"
     data-overlay-hitbox="true"
     :style="smallPageStyle"
     @pointerdown="onSmallPagePointerDown"
@@ -36,12 +37,15 @@
       :is="currentWidget"
       v-bind="widgetStore.activeWidget.props"
       @flow-action="handleFlowAction"
+      @fullscreen="handleFullscreen"
+      @minimize="handleMinimize"
+      @close="handleClose"
     />
   </WidgetShell>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFlowStore } from '../../stores/flow';
 import { useSmallPageStore } from '../../stores/smallPage';
@@ -54,28 +58,82 @@ const flowStore = useFlowStore();
 const smallPageStore = useSmallPageStore();
 const widgetStore = useWidgetStore();
 
+// 小屏外壳 DOM，用于拖拽夹取与内容高度自适应时按实测尺寸限制位置。
+const hostEl = ref(null);
+
 // 窗口尺寸变化时触发小屏位置重新计算（window.innerWidth 非响应式）。
 const resizeTick = ref(0);
 
 function onWindowResize() {
   resizeTick.value += 1;
+  clampToViewport();
 }
+
+// 内容自适应高度时，小屏外壳尺寸会随内容变化，需把它夹回视口内。
+let hostResizeObserver;
 
 onMounted(() => {
   window.addEventListener('resize', onWindowResize);
   window.addEventListener('pointermove', onDragMove);
   window.addEventListener('pointerup', onDragEnd);
+
+  hostResizeObserver = new ResizeObserver(() => clampToViewport());
+  if (hostEl.value) {
+    hostResizeObserver.observe(hostEl.value);
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onWindowResize);
   window.removeEventListener('pointermove', onDragMove);
   window.removeEventListener('pointerup', onDragEnd);
+  hostResizeObserver?.disconnect();
 });
+
+// 小屏外壳挂载/卸载时重新绑定 ResizeObserver。
+watch(hostEl, (el, prev) => {
+  if (!hostResizeObserver) {
+    return;
+  }
+  if (prev) {
+    hostResizeObserver.unobserve(prev);
+  }
+  if (el) {
+    hostResizeObserver.observe(el);
+  }
+});
+
+// 按外壳实测尺寸把可拖拽小屏夹回视口内，避免内容增高后越界。
+function clampToViewport() {
+  const page = smallPageStore.activePage;
+  if (!page || page.position !== 'draggable') {
+    return;
+  }
+
+  const el = hostEl.value;
+  if (!el) {
+    return;
+  }
+
+  const MARGIN = 12;
+  const width = el.offsetWidth;
+  const height = el.offsetHeight;
+  const x = Math.max(MARGIN, Math.min(page.dragX, window.innerWidth - width - MARGIN));
+  const y = Math.max(MARGIN, Math.min(page.dragY, window.innerHeight - height - MARGIN));
+
+  if (x !== page.dragX || y !== page.dragY) {
+    smallPageStore.updateDragPosition(x, y);
+  }
+}
 
 // 当前小屏是否可拖拽。
 const isDraggablePage = computed(() => {
   return smallPageStore.activePage?.position === 'draggable';
+});
+
+// 当前小屏是否为内容自适应高度模式。
+const isContentHeight = computed(() => {
+  return smallPageStore.activePage?.heightMode === 'content';
 });
 
 // 拖拽状态。
@@ -115,10 +173,13 @@ function onDragMove(event) {
   let newX = dragStart.pageX + deltaX;
   let newY = dragStart.pageY + deltaY;
 
-  // 限制在视口内，保留 12px 边距。
+  // 限制在视口内，保留 12px 边距。content 模式下高度动态，按外壳实测尺寸夹取。
   const MARGIN = 12;
-  newX = Math.max(MARGIN, Math.min(newX, window.innerWidth - page.width - MARGIN));
-  newY = Math.max(MARGIN, Math.min(newY, window.innerHeight - page.height - MARGIN));
+  const el = hostEl.value;
+  const width = el ? el.offsetWidth : page.width;
+  const height = el ? el.offsetHeight : page.height || 0;
+  newX = Math.max(MARGIN, Math.min(newX, window.innerWidth - width - MARGIN));
+  newY = Math.max(MARGIN, Math.min(newY, window.innerHeight - height - MARGIN));
 
   smallPageStore.updateDragPosition(newX, newY);
 }
@@ -156,6 +217,17 @@ const smallPageStyle = computed(() => {
 
   // draggable：使用 store 中记录的拖拽位置。
   if (page.position === 'draggable') {
+    // content 模式：高度随内容自适应，仅限制最大高度，超出后内部滚动。
+    if (page.heightMode === 'content') {
+      const cap = Math.min(page.maxHeight || 600, window.innerHeight - 24);
+      return {
+        width: `${pageWidth}px`,
+        maxHeight: `${cap}px`,
+        left: `${page.dragX}px`,
+        top: `${page.dragY}px`
+      };
+    }
+
     return {
       width: `${pageWidth}px`,
       height: `${pageHeight}px`,
@@ -207,17 +279,6 @@ const smallPageStyle = computed(() => {
 
 // 接收业务页面事件，并交给流程 store 决定下一步。
 function handleFlowAction(payload) {
-  // 小屏内部收起/展开 → 调整小屏高度，不改变业务状态。
-  if (payload.action === 'collapse-small-page') {
-    smallPageStore.updateHeight(payload.collapsedHeight || 80);
-    return;
-  }
-
-  if (payload.action === 'expand-small-page') {
-    smallPageStore.updateHeight(payload.expandedHeight || 300);
-    return;
-  }
-
   const target = flowStore.handleAskWidgetAction(payload);
   if (!target) {
     return;
@@ -236,7 +297,10 @@ function handleFlowAction(payload) {
   if (target.displayMode === 'fullscreen' && target.route) {
     smallPageStore.closePage();
     widgetStore.closeWidget();
-    router.push({ path: target.route, query: target.query || {} });
+    router.push({
+      path: target.route,
+      query: target.query || flowStore.fullscreenQuery || {}
+    });
     nextTick(() => {
       document.dispatchEvent(new CustomEvent('overlay-hitboxes-changed'));
     });
@@ -284,7 +348,10 @@ async function handleFullscreen() {
   }
 
   widgetStore.closeWidget();
-  await router.push(target.route);
+  await router.push({
+    path: target.route,
+    query: target.query || flowStore.fullscreenQuery || {}
+  });
 }
 
 // 从最小化按钮恢复。
@@ -294,7 +361,10 @@ async function handleRestore() {
   // 如果是从全屏最小化恢复 → 导航回全屏路由。
   if (target.route) {
     widgetStore.closeWidget();
-    await router.push(target.route);
+    await router.push({
+      path: target.route,
+      query: target.query || flowStore.fullscreenQuery || {}
+    });
     return;
   }
 
@@ -315,6 +385,13 @@ async function handleRestore() {
   background: #ffffff;
   box-shadow: var(--ez-shadow-4);
   pointer-events: auto;
+}
+
+/* 内容自适应高度：外壳作为纵向 flex 容器并裁剪，内部业务组件自管滚动。 */
+.small-page-host.is-content-height {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .minimized-trigger {

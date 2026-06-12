@@ -33,3 +33,45 @@
   --el-button-active-bg-color: var(--ez-p700);
   --el-button-active-border-color: var(--ez-p700);
 }
+
+.set-single-answer-dialog,
+.set-batch-answers-dialog {
+  border-radius: 20px;
+  padding: 8px 8px 4px;
+  box-shadow: var(--ez-shadow-4);
+
+  .el-dialog__header {
+    padding: 20px 24px 8px;
+    margin-right: 0;
+  }
+
+  .el-dialog__body {
+    padding: 8px 24px 16px;
+  }
+
+  .el-dialog__footer {
+    padding: 8px 24px 20px;
+  }
+
+  .el-dialog__headerbtn {
+    width: 36px;
+    height: 36px;
+    top: 18px;
+    right: 16px;
+
+    .el-dialog__close {
+      color: var(--ez-n500);
+      font-size: 18px;
+    }
+  }
+}
+
+.set-answer-dialog-overlay {
+  z-index: 2147483646 !important;
+  background-color: rgba(17, 20, 24, 0.28);
+}
+
+.set-single-answer-dialog,
+.set-batch-answers-dialog {
+  z-index: 2147483647 !important;
+}

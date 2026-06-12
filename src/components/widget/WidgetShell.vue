@@ -5,26 +5,18 @@
     :style="frameStyle"
     data-overlay-hitbox="true"
   >
-    <div class="widget-design-canvas" :style="canvasStyle">
-      <header class="widget-header" @pointerdown="onPointerDown">
+    <div
+      class="widget-design-canvas"
+      :class="{ 'is-compact-body': variant === 'compact' }"
+      :style="canvasStyle"
+    >
+      <header
+        v-if="variant !== 'compact'"
+        class="widget-header"
+        @pointerdown="onPointerDown"
+      >
         <strong>{{ widget.title }}</strong>
         <div class="widget-actions" @pointerdown.stop>
-          <button
-            v-if="variant === 'compact'"
-            type="button"
-            title="全屏"
-            @click.stop="$emit('fullscreen')"
-          >
-            全屏
-          </button>
-          <button
-            v-if="variant === 'compact'"
-            type="button"
-            title="最小化"
-            @click.stop="$emit('minimize')"
-          >
-            最小化
-          </button>
           <button type="button" title="关闭" class="is-danger" @click.stop="$emit('close')">
             关闭
           </button>
@@ -39,7 +31,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, provide, ref } from 'vue';
 import { useWidgetStore } from '../../stores/widget';
 
 const props = defineProps({
@@ -139,6 +131,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPointerMove);
   window.removeEventListener('pointerup', onPointerUp);
 });
+
+provide('widgetDragStart', onPointerDown);
 </script>
 
 <style scoped lang="scss">
@@ -160,6 +154,10 @@ onBeforeUnmount(() => {
   background: #ffffff;
   box-shadow: var(--ez-shadow-4);
   transform-origin: top left;
+
+  &.is-compact-body {
+    grid-template-rows: 1fr;
+  }
 }
 
 .widget-header {
@@ -201,6 +199,8 @@ onBeforeUnmount(() => {
 
 .widget-body {
   min-height: 0;
+  height: 100%;
   background: #ffffff;
+  overflow: hidden;
 }
 </style>
