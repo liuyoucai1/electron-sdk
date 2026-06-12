@@ -90,7 +90,10 @@
 
       <!-- 右侧动作按钮 -->
       <div class="footer-actions">
-        <button class="btn btn-primary" @click="handleSetAnswers">
+        <button
+          class="btn btn-primary"
+          @click="handleSetAnswers(setAnswerDialogRef)"
+        >
           设置答案
         </button>
 
@@ -136,18 +139,14 @@
     </div>
 
     <SetSingleAnswerDialog
-      v-model="showSetAnswerDialog"
-      :question-index="currentPage"
-      :question-type="currentQuestionMeta.type"
-      :type-label="currentQuestionMeta.typeLabel"
-      :option-count="currentOptionCount"
-      :initial-answer="currentSavedAnswer"
+      ref="setAnswerDialogRef"
       @confirm="handleAnswerConfirm"
     />
   </div>
 </template>
 
 <script setup>
+import { ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import ObjectiveQuestionDistribution from "./components/ObjectiveQuestionDistribution.vue";
 import SetSingleAnswerDialog from "./components/SetSingleAnswerDialog.vue";
@@ -156,6 +155,7 @@ import { useFlowStore } from "../../stores/flow";
 import { useSmallPageStore } from "../../stores/smallPage";
 import { useWidgetStore } from "../../stores/widget";
 
+const setAnswerDialogRef = ref(null);
 const router = useRouter();
 const route = useRoute();
 const flowStore = useFlowStore();
@@ -174,7 +174,6 @@ const {
   answeredCount,
   totalStudents,
   distributions,
-  showSetAnswerDialog,
   currentSavedAnswer,
   hasAnswerSet,
   expandedLabel,

@@ -175,7 +175,78 @@
 - Vue 组件脚本统一使用 Composition API 的 `script setup` 写法，不使用 Options API。
 - 组件内方法必须写注释，说明方法用途；复杂方法还需要说明关键参数、边界条件或副作用。
 - 方法注释写在方法声明上方，保持简洁，不写空泛描述。
-- 示例：
+
+### 弹窗 / 抽屉组件约定
+
+业务弹窗、设置面板、抽屉等**临时编辑态**组件，优先采用「自己的数据自己控制」模式，不要用 `v-model` 管显隐、也不要用一堆 props + watch 和父级双向同步草稿。
+
+**核心原则**
+
+- **子组件**：只管弹层显隐、内部草稿、按题型渲染表单；打开时一次性接收参数并初始化。
+- **父组件**：只管业务真相数据（如 `correctAnswersMap`）；打开时组装参数并调用子组件方法；确认时接收 `emit('confirm')` 后更新自己的数据。
+- **不要用 watch 串联父子弹窗状态**。父改 props → 子 watch 重建草稿 → 子改值 → 父 watch 持久化，这类链路容易形成递归更新，也难维护。
+
+**推荐打开方式：`defineExpose` + 父级 `ref`**
+
+子组件暴露 `handleOpen(params)`，父级通过 `ref` 命令式打开并传入本次所需上下文（题目 id、题型、已保存答案等）：
+
+```vue
+<!-- 父级 -->
+<SetSingleAnswerDialog ref="setAnswerDialogRef" @confirm="handleAnswerConfirm" />
+<button @click="handleSetAnswers(setAnswerDialogRef)">设置答案</button>
+```
+
+```js
+// 子组件
+const visible = ref(false);
+const localValue = ref("");
+
+function handleOpen(params = {}) {
+  // 按 params 初始化内部草稿；已设置过答案则回显，否则给默认值
+  initLocalValue(params.initialAnswer);
+  visible.value = true;
+}
+
+function handleConfirm() {
+  emit("confirm", { type: params.type, value: localValue.value });
+  visible.value = false;
+}
+
+defineExpose({ handleOpen });
+```
+
+```js
+// 父级或 composable：只负责拼打开参数，不维护 showDialog
+function handleSetAnswers(dialogRef) {
+  dialogRef?.handleOpen({
+    questionIndex: currentPage.value,
+    questionType: currentQuestionMeta.value.type,
+    initialAnswer: currentSavedAnswer.value,
+  });
+}
+
+function handleAnswerConfirm(payload) {
+  correctAnswersMap.value[currentPage.value] = payload;
+}
+```
+
+**props 边界**
+
+- 子组件 props 只保留**与布局/环境相关**的配置，例如 `compact`（全屏 40% / 缩屏 70% 宽度）。
+- 本次打开所需的业务上下文（题目 id、题型、选项数、初始答案、题目列表等）一律通过 `handleOpen(params)` 传入，不作为长期 props 绑定。
+
+**持久化与全屏 / 缩屏同步**
+
+- 设置答案、翻页等交互本身不需要 watch 自动持久化。
+- 需要跨全屏与缩屏共享状态时，在**显式时机**调用持久化（如 `handleAnswerConfirm`、缩屏/全屏切换前），不要把 `persist` 和 `restore` 绑在同一组 reactive 依赖上。
+- 全屏页的 `querySource` 以路由 `route.query` 为准，不要用会被 `persist` 回写的 store 字段作为 computed 依赖，避免 `persist → querySource 变 → restore → 再 persist` 死循环。
+
+**参考实现**
+
+- 单题设置答案：`src/views/ask/components/SetSingleAnswerDialog.vue`
+- 批次设置答案：`src/views/ask/components/SetBatchAnswersDialog.vue`
+
+**单文件组件结构示例**
 
 ```vue
 <template>

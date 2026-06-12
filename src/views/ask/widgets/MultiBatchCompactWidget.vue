@@ -72,22 +72,25 @@
     </section>
 
     <template #actions>
-      <button class="btn-primary" type="button" @click="handleSetAnswers">
+      <button
+        class="btn-primary"
+        type="button"
+        @click="handleSetAnswers(setAnswersDialogRef)"
+      >
         设置答案
       </button>
     </template>
   </CompactWidgetLayout>
 
   <SetBatchAnswersDialog
-    v-model="showSetAnswersDialog"
+    ref="setAnswersDialogRef"
     compact
-    :questions="setAnswerQuestions"
-    :initial-answers="batchCorrectAnswers"
     @confirm="handleAnswersConfirm"
   />
 </template>
 
 <script setup>
+import { ref } from "vue";
 import CompactWidgetLayout from "../../../components/widget/CompactWidgetLayout.vue";
 import SetBatchAnswersDialog from "../components/SetBatchAnswersDialog.vue";
 import { useMultiBatchAnalysis } from "../composables/useMultiBatchAnalysis";
@@ -113,12 +116,13 @@ const props = defineProps({
 
 defineEmits(["fullscreen", "minimize", "close"]);
 
+const setAnswersDialogRef = ref(null);
+
 const {
   questionCount,
   displayedQuestions,
   currentSort,
   setAnswerQuestions,
-  showSetAnswersDialog,
   batchCorrectAnswers,
   setSort,
   handleSetAnswers,

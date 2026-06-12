@@ -192,7 +192,10 @@
       <div v-else class="footer-sort footer-sort--placeholder"></div>
 
       <div class="footer-actions">
-        <button class="btn btn-primary" @click="handleSetAnswers">
+        <button
+          class="btn btn-primary"
+          @click="handleSetAnswers(setAnswersDialogRef)"
+        >
           设置答案
         </button>
 
@@ -218,9 +221,7 @@
     </div>
 
     <SetBatchAnswersDialog
-      v-model="showSetAnswersDialog"
-      :questions="setAnswerQuestions"
-      :initial-answers="batchCorrectAnswers"
+      ref="setAnswersDialogRef"
       @confirm="handleAnswersConfirm"
     />
   </div>
@@ -243,6 +244,7 @@ import { useFlowStore } from "../../stores/flow";
 import { useSmallPageStore } from "../../stores/smallPage";
 import { useWidgetStore } from "../../stores/widget";
 
+const setAnswersDialogRef = ref(null);
 const router = useRouter();
 const route = useRoute();
 const flowStore = useFlowStore();
@@ -255,7 +257,6 @@ const {
   displayedQuestions,
   currentSort,
   setAnswerQuestions,
-  showSetAnswersDialog,
   batchCorrectAnswers,
   setSort,
   handleSetAnswers,

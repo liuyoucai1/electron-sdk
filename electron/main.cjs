@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require('electron');
 const path = require('path');
 const { createBackend } = require('../server/backend.cjs');
 
@@ -148,6 +148,27 @@ app.whenReady().then(async () => {
     applyMousePassthrough(true);
     startHitTesting();
   });
+
+  // 开发环境：F12 打开/关闭 DevTools，便于查看 Console 报错。
+  if (isDev) {
+    globalShortcut.register('F12', () => {
+      if (!overlayWindow) {
+        return;
+      }
+
+      if (overlayWindow.webContents.isDevToolsOpened()) {
+        overlayWindow.webContents.closeDevTools();
+      } else {
+        overlayWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+    });
+  }
+});
+
+app.on('will-quit', () => {
+  if (isDev) {
+    globalShortcut.unregisterAll();
+  }
 });
 
 app.on('before-quit', async () => {

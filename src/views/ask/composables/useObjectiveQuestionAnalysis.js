@@ -146,6 +146,10 @@ export function useObjectiveQuestionAnalysis(context = {}) {
     if (widgetProps?.routeQuery) {
       return widgetProps.routeQuery;
     }
+    // 全屏页以路由 query 为准，避免 persist 回写 flowStore 后 querySource 变化触发 restore 死循环。
+    if (context.route) {
+      return context.route.query;
+    }
     if (flowStore.objectiveAnalysisState?.routeQuery) {
       return flowStore.objectiveAnalysisState.routeQuery;
     }
@@ -158,7 +162,6 @@ export function useObjectiveQuestionAnalysis(context = {}) {
 
   const currentPage = ref(1);
   const totalPages = ref(1);
-  const showSetAnswerDialog = ref(false);
   const correctAnswersMap = ref({});
   const expandedLabel = ref(null);
 
@@ -270,12 +273,6 @@ export function useObjectiveQuestionAnalysis(context = {}) {
     () => querySource.value.compactParent === "multi-batch-compact",
   );
 
-  watch(showSetAnswerDialog, () => {
-    nextTick(() => {
-      document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
-    });
-  });
-
   // 持久化分析状态，供全屏与缩屏切换共享。
   function persistAnalysisState() {
     flowStore.saveObjectiveAnalysisState({
@@ -311,22 +308,24 @@ export function useObjectiveQuestionAnalysis(context = {}) {
     expandedLabel.value = expandedLabel.value === label ? null : label;
   }
 
-  // 打开设置正确答案弹框，并通知 overlay 刷新可点击热区。
-  function handleSetAnswers() {
-    showSetAnswerDialog.value = true;
-    nextTick(() => {
-      document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
+  // 打开设置正确答案弹框；由父级传入弹框组件 ref。
+  function handleSetAnswers(dialogRef) {
+    dialogRef?.handleOpen({
+      questionIndex: currentPage.value,
+      questionType: currentQuestionMeta.value.type,
+      typeLabel: currentQuestionMeta.value.typeLabel,
+      optionCount: currentOptionCount.value,
+      initialAnswer: currentSavedAnswer.value,
     });
   }
 
-  // 确认保存当前题正确答案，并同步 flowStore 供全屏/缩屏共享。
+  // 确认保存当前题正确答案；持久化由 correctAnswersMap 的 watch 统一处理。
   function handleAnswerConfirm(payload) {
     correctAnswersMap.value[currentPage.value] = {
       type: payload.type,
       typeLabel: payload.typeLabel,
       value: payload.value,
     };
-    persistAnalysisState();
     nextTick(() => {
       document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
     });
@@ -365,7 +364,6 @@ export function useObjectiveQuestionAnalysis(context = {}) {
     answeredCount,
     totalStudents,
     distributions,
-    showSetAnswerDialog,
     currentSavedAnswer,
     hasAnswerSet,
     expandedLabel,

@@ -58,25 +58,25 @@
     </section>
 
     <template #actions>
-      <button class="btn-primary" type="button" @click="handleSetAnswers">
+      <button
+        class="btn-primary"
+        type="button"
+        @click="handleSetAnswers(setAnswerDialogRef)"
+      >
         设置答案
       </button>
     </template>
   </CompactWidgetLayout>
 
   <SetSingleAnswerDialog
-    v-model="showSetAnswerDialog"
+    ref="setAnswerDialogRef"
     compact
-    :question-index="currentPage"
-    :question-type="currentQuestionMeta.type"
-    :type-label="currentQuestionMeta.typeLabel"
-    :option-count="currentOptionCount"
-    :initial-answer="currentSavedAnswer"
     @confirm="handleAnswerConfirm"
   />
 </template>
 
 <script setup>
+import { ref } from "vue";
 import CompactWidgetLayout from "../../../components/widget/CompactWidgetLayout.vue";
 import ObjectiveQuestionDistribution from "../components/ObjectiveQuestionDistribution.vue";
 import SetSingleAnswerDialog from "../components/SetSingleAnswerDialog.vue";
@@ -103,6 +103,8 @@ const props = defineProps({
 
 defineEmits(["fullscreen", "minimize", "close"]);
 
+const setAnswerDialogRef = ref(null);
+
 const {
   isMultiQuestion,
   showCompactBack,
@@ -113,7 +115,6 @@ const {
   questionStem,
   options,
   distributions,
-  showSetAnswerDialog,
   currentSavedAnswer,
   hasAnswerSet,
   expandedLabel,

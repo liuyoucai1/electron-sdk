@@ -77,37 +77,13 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref } from "vue";
 import {
   NUMERIC_ANSWER_MAX_LENGTH,
   sanitizeNumericAnswerInput,
 } from "../../../utils/numericAnswer.js";
 
 const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
-  },
-  questionIndex: {
-    type: Number,
-    default: 1,
-  },
-  questionType: {
-    type: String,
-    default: "single",
-  },
-  typeLabel: {
-    type: String,
-    default: "单选",
-  },
-  optionCount: {
-    type: Number,
-    default: 4,
-  },
-  initialAnswer: {
-    type: [String, Array],
-    default: "",
-  },
   // 缩屏为 true（70%），全屏为 false（40%）。
   compact: {
     type: Boolean,
@@ -115,21 +91,21 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["update:modelValue", "confirm"]);
+const emit = defineEmits(["confirm"]);
 
+const visible = ref(false);
+const questionIndex = ref(1);
+const questionType = ref("single");
+const typeLabel = ref("单选");
+const optionCount = ref(4);
 const localValue = ref("");
-
-const visible = computed({
-  get: () => props.modelValue,
-  set: (value) => emit("update:modelValue", value),
-});
 
 const dialogWidth = computed(() => (props.compact ? "70%" : "40%"));
 
 // 生成单/多选选项字母列表。
 const optionKeys = computed(() => {
   const letters = "ABCDEFGHIJ".split("");
-  return letters.slice(0, Math.max(2, Math.min(props.optionCount, 10)));
+  return letters.slice(0, Math.max(2, Math.min(optionCount.value, 10)));
 });
 
 // 为 Electron 透明窗口标记弹层与面板热区，并强制关闭鼠标穿透。
@@ -154,22 +130,30 @@ function notifyOverlayChange() {
   });
 }
 
-// 根据初始答案构建弹框草稿。
-function buildLocalValue() {
-  if (props.questionType === "multiple") {
-    localValue.value = Array.isArray(props.initialAnswer)
-      ? [...props.initialAnswer]
-      : [];
+// 根据打开参数初始化弹框草稿。
+function initLocalValue(initialAnswer) {
+  if (questionType.value === "multiple") {
+    localValue.value = Array.isArray(initialAnswer) ? [...initialAnswer] : [];
     return;
   }
 
   localValue.value =
-    typeof props.initialAnswer === "string" ? props.initialAnswer : "";
+    typeof initialAnswer === "string" ? initialAnswer : "";
+}
+
+// 打开弹框并载入题目上下文；由父级通过 ref 调用。
+function handleOpen(params = {}) {
+  questionIndex.value = params.questionIndex ?? 1;
+  questionType.value = params.questionType ?? "single";
+  typeLabel.value = params.typeLabel ?? "单选";
+  optionCount.value = params.optionCount ?? 4;
+  initLocalValue(params.initialAnswer);
+  visible.value = true;
 }
 
 // 判断选项是否选中。
 function isOptionActive(opt) {
-  if (props.questionType === "multiple") {
+  if (questionType.value === "multiple") {
     return Array.isArray(localValue.value) && localValue.value.includes(opt);
   }
   return localValue.value === opt;
@@ -177,7 +161,7 @@ function isOptionActive(opt) {
 
 // 单选选中唯一项；多选切换选中集合。
 function toggleOption(opt) {
-  if (props.questionType === "multiple") {
+  if (questionType.value === "multiple") {
     const selected = Array.isArray(localValue.value) ? [...localValue.value] : [];
     const pos = selected.indexOf(opt);
     if (pos >= 0) {
@@ -201,35 +185,21 @@ function handleNumericInput(value) {
 // 确认答案并回传父组件。
 function handleConfirm() {
   const value =
-    props.questionType === "multiple"
+    questionType.value === "multiple"
       ? [...(localValue.value || [])]
       : (localValue.value ?? "");
 
   emit("confirm", {
-    type: props.questionType,
-    typeLabel: props.typeLabel,
+    type: questionType.value,
+    typeLabel: typeLabel.value,
     value,
   });
   visible.value = false;
 }
 
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (open) {
-      buildLocalValue();
-    }
-  },
-);
-
-watch(
-  () => [props.initialAnswer, props.questionType],
-  () => {
-    if (props.modelValue) {
-      buildLocalValue();
-    }
-  },
-);
+defineExpose({
+  handleOpen,
+});
 </script>
 
 <style scoped lang="scss">

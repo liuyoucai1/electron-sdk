@@ -91,6 +91,10 @@ export function useMultiBatchAnalysis(context = {}) {
     if (widgetProps?.routeQuery) {
       return widgetProps.routeQuery;
     }
+    // 全屏页以路由 query 为准，避免 persist 回写 flowStore 后 querySource 变化触发 restore 死循环。
+    if (context.route) {
+      return context.route.query;
+    }
     if (flowStore.batchAnalysisState?.routeQuery) {
       return flowStore.batchAnalysisState.routeQuery;
     }
@@ -103,7 +107,6 @@ export function useMultiBatchAnalysis(context = {}) {
 
   const questions = ref(mockQuestions.map((item) => ({ ...item })));
   const currentSort = ref("index");
-  const showSetAnswersDialog = ref(false);
   const batchCorrectAnswers = ref([]);
 
   // 从 flowStore 恢复批次分析上下文。
@@ -146,12 +149,6 @@ export function useMultiBatchAnalysis(context = {}) {
     { deep: true },
   );
 
-  watch(showSetAnswersDialog, () => {
-    nextTick(() => {
-      document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
-    });
-  });
-
   const questionCount = computed(() => questions.value.length);
 
   // 题目列表：展示全部题目，排序只改变顺序。
@@ -190,11 +187,11 @@ export function useMultiBatchAnalysis(context = {}) {
     currentSort.value = mode;
   }
 
-  // 打开批次设置正确答案弹框。
-  function handleSetAnswers() {
-    showSetAnswersDialog.value = true;
-    nextTick(() => {
-      document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
+  // 打开批次设置正确答案弹框；由父级传入弹框组件 ref。
+  function handleSetAnswers(dialogRef) {
+    dialogRef?.handleOpen({
+      questions: setAnswerQuestions.value,
+      initialAnswers: batchCorrectAnswers.value,
     });
   }
 
@@ -301,7 +298,6 @@ export function useMultiBatchAnalysis(context = {}) {
     displayedQuestions,
     currentSort,
     setAnswerQuestions,
-    showSetAnswersDialog,
     batchCorrectAnswers,
     setSort,
     handleSetAnswers,

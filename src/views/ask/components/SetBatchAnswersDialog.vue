@@ -84,27 +84,13 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, ref } from "vue";
 import {
   NUMERIC_ANSWER_MAX_LENGTH,
   sanitizeNumericAnswerInput,
 } from "../../../utils/numericAnswer.js";
 
 const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false,
-  },
-  // 题目配置列表：{ id, type, typeLabel, optionCount }
-  questions: {
-    type: Array,
-    default: () => [],
-  },
-  // 已保存的答案，用于再次打开时回显。
-  initialAnswers: {
-    type: Array,
-    default: () => [],
-  },
   // 缩屏为 true（70%），全屏为 false（40%）。
   compact: {
     type: Boolean,
@@ -112,15 +98,10 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["update:modelValue", "confirm"]);
+const emit = defineEmits(["confirm"]);
 
-// 弹框内可编辑的答案草稿。
+const visible = ref(false);
 const localAnswers = ref([]);
-
-const visible = computed({
-  get: () => props.modelValue,
-  set: (value) => emit("update:modelValue", value),
-});
 
 const dialogWidth = computed(() => (props.compact ? "70%" : "40%"));
 
@@ -146,13 +127,13 @@ function notifyOverlayChange() {
   });
 }
 
-// 根据题目配置与初始答案构建本地草稿。
-function buildLocalAnswers() {
+// 根据打开参数构建本地草稿。
+function buildLocalAnswers(questions, initialAnswers) {
   const savedMap = new Map(
-    props.initialAnswers.map((item) => [item.questionId, item]),
+    initialAnswers.map((item) => [item.questionId, item]),
   );
 
-  localAnswers.value = props.questions.map((q) => {
+  localAnswers.value = questions.map((q) => {
     const saved = savedMap.get(q.id);
     const type = q.type || "single";
 
@@ -174,6 +155,12 @@ function buildLocalAnswers() {
       value: saved?.value ?? "",
     };
   });
+}
+
+// 打开弹框并载入题目列表；由父级通过 ref 调用。
+function handleOpen(params = {}) {
+  buildLocalAnswers(params.questions || [], params.initialAnswers || []);
+  visible.value = true;
 }
 
 // 生成单/多选选项字母列表。
@@ -245,24 +232,9 @@ function handleConfirm() {
   visible.value = false;
 }
 
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (open) {
-      buildLocalAnswers();
-    }
-  },
-);
-
-watch(
-  () => props.questions,
-  () => {
-    if (props.modelValue) {
-      buildLocalAnswers();
-    }
-  },
-  { deep: true },
-);
+defineExpose({
+  handleOpen,
+});
 </script>
 
 <style scoped lang="scss">
