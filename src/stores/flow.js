@@ -1,4 +1,16 @@
 import { defineStore } from 'pinia';
+import {
+  buildAnswerProgressFromReadRecite,
+  buildAnswerProgressFromScreenshot,
+  buildAnswerProgressFromVoice
+} from '../views/ask/subjective/utils/buildAnswerProgressSession.js';
+import { buildReadReciteAnalysis } from '../views/ask/subjective/utils/buildReadReciteAnalysis.js';
+import { buildVoiceAnalysis, buildVoiceAnalysisWithQuestion } from '../views/ask/subjective/utils/buildVoiceAnalysis.js';
+import { resolveImageSrc } from '../views/ask/subjective/utils/resolveImageSrc.js';
+import {
+  finalizeScreenshotSession,
+  releaseSessionImageMemory
+} from '../api/sessionAsset.js';
 
 const INITIAL_STATE = {
   activeFlow: null,
@@ -19,6 +31,22 @@ const INITIAL_STATE = {
   objectiveAnalysisState: null,
   // 多题批次分析页状态，供全屏与缩屏切换共享。
   batchAnalysisState: null,
+  // 通用答题进行中页状态（背读 / 截屏 / 语音等来源共用）。
+  answerProgressState: null,
+  // 背读判分页状态，供全屏展示与后续 IPC 实时更新。
+  readReciteAnalysisState: null,
+  // 语音出题录入内容，供后续答题与分析流程使用。
+  voiceQuestionState: null,
+  // 语音分析页状态，供全屏展示与后续 IPC 实时更新。
+  voiceAnalysisState: null,
+  // 语音学生详情页当前查看的学生索引。
+  voiceStudentIndex: 0,
+  // 背读学生详情页当前查看的学生索引（仅已作答学生）。
+  readReciteStudentIndex: 0,
+  // 语音录入小屏打开场景：analysis 表示从语音分析页补设题目。
+  voiceQuestionInputContext: null,
+  // 截屏出题图片数据，供后续题目展示与答题流程使用。
+  screenshotQuestionState: null,
   // 缩屏子页返回栈：从多题列表缩屏进入单题分析缩屏时记录父级 widget。
   compactParent: null,
   // 记录 AnswerProgressWidget 是从哪个入口打开的，
@@ -175,6 +203,272 @@ export const useFlowStore = defineStore('flow', {
         };
       }
 
+      if (payload.action === 'open-voice-question') {
+        this.currentStep = 'voice-question-method';
+        this.viewMode = 'small-page';
+
+        return {
+          displayMode: 'small-page',
+          pageType: 'voice-question-method',
+          props: {
+            sessionId: this.sessionId
+          }
+        };
+      }
+
+      if (payload.action === 'select-voice-method') {
+        if (payload.method === 'voice') {
+          this.voiceQuestionInputContext = null;
+          this.currentStep = 'voice-question-input';
+          this.viewMode = 'small-page';
+
+          return {
+            displayMode: 'small-page',
+            pageType: 'voice-question-input',
+            props: {
+              sessionId: this.sessionId
+            }
+          };
+        }
+
+        if (payload.method === 'later') {
+          const analysis = buildVoiceAnalysis({ deferQuestionSetup: true });
+
+          this.saveVoiceQuestionState({ deferQuestionSetup: true });
+          this.currentStep = 'voice-analysis';
+          this.viewMode = 'fullscreen';
+          this.fullscreenRoute = '/ask/voice-analysis';
+          this.fullscreenQuery = {
+            sourceType: 'voice',
+            deferQuestion: '1'
+          };
+          this.saveVoiceAnalysisState(analysis);
+
+          return {
+            displayMode: 'fullscreen',
+            route: this.fullscreenRoute,
+            query: this.fullscreenQuery
+          };
+        }
+
+        return null;
+      }
+
+      if (payload.action === 'open-voice-question-from-analysis') {
+        this.voiceQuestionInputContext = 'analysis';
+        this.currentStep = 'voice-question-input';
+        this.viewMode = 'small-page';
+
+        return {
+          displayMode: 'small-page',
+          pageType: 'voice-question-input',
+          props: {
+            sessionId: this.sessionId,
+            fromAnalysis: true
+          }
+        };
+      }
+
+      if (payload.action === 'cancel-voice-question-from-analysis') {
+        this.voiceQuestionInputContext = null;
+        this.viewMode = 'fullscreen';
+
+        return {
+          displayMode: 'fullscreen',
+          route: '/ask/voice-analysis'
+        };
+      }
+
+      if (payload.action === 'set-voice-analysis-question') {
+        let questionPayload = { ...payload };
+
+        if (payload.questionMode === 'screenshot') {
+          const imageSrc = resolveImageSrc({
+            imageBase64: payload.imageBase64 || '',
+            mimeType: payload.mimeType || 'image/png'
+          });
+
+          questionPayload = {
+            questionMode: 'screenshot',
+            contentType: 'image',
+            imageBase64: payload.imageBase64 || '',
+            imageSrc,
+            mimeType: payload.mimeType || 'image/png',
+            contentHtml: null,
+            questionText: ''
+          };
+        }
+
+        const analysis = buildVoiceAnalysisWithQuestion(
+          this.voiceAnalysisState || {},
+          questionPayload
+        );
+
+        this.saveVoiceAnalysisState(analysis);
+        this.viewMode = 'fullscreen';
+        this.fullscreenRoute = '/ask/voice-analysis';
+
+        return {
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute,
+          analysis
+        };
+      }
+
+      if (payload.action === 'back-voice-question-method') {
+        this.currentStep = 'voice-question-method';
+        this.viewMode = 'small-page';
+
+        return {
+          displayMode: 'small-page',
+          pageType: 'voice-question-method',
+          props: {
+            sessionId: this.sessionId
+          }
+        };
+      }
+
+      if (payload.action === 'start-voice-question') {
+        const questionText = payload.questionText || '';
+
+        if (this.voiceQuestionInputContext === 'analysis') {
+          const voiceSession = buildAnswerProgressFromVoice({
+            questionText,
+            contentHtml: payload.contentHtml
+          });
+          const analysis = buildVoiceAnalysisWithQuestion(this.voiceAnalysisState || {}, {
+            questionMode: 'voice',
+            questionText: voiceSession.questionText,
+            contentHtml: voiceSession.contentHtml,
+            contentType: 'html'
+          });
+
+          this.voiceQuestionInputContext = null;
+          this.saveVoiceAnalysisState(analysis);
+          this.viewMode = 'fullscreen';
+          this.fullscreenRoute = '/ask/voice-analysis';
+
+          return {
+            displayMode: 'fullscreen',
+            route: this.fullscreenRoute,
+            analysis
+          };
+        }
+
+        const session = buildAnswerProgressFromVoice({
+          questionText,
+          contentHtml: payload.contentHtml
+        });
+
+        this.saveVoiceQuestionState({ questionText });
+        this.currentStep = 'answer-progress';
+        this.viewMode = 'fullscreen';
+        this.fullscreenRoute = '/ask/answer-progress';
+        this.fullscreenQuery = {
+          sourceType: 'voice'
+        };
+        this.saveAnswerProgressState(session);
+
+        return {
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute,
+          query: this.fullscreenQuery
+        };
+      }
+
+      if (payload.action === 'confirm-screenshot-question') {
+        const session = buildAnswerProgressFromScreenshot({
+          imageBase64: payload.imageBase64 || '',
+          mimeType: payload.mimeType || 'image/png',
+          bounds: payload.bounds || null
+        });
+
+        this.currentStep = 'answer-progress';
+        this.viewMode = 'fullscreen';
+        this.fullscreenRoute = '/ask/answer-progress';
+        this.fullscreenQuery = {
+          sourceType: 'screenshot'
+        };
+        this.saveAnswerProgressState(session);
+        this.saveScreenshotQuestionState({
+          imageBase64: payload.imageBase64 || '',
+          mimeType: payload.mimeType || 'image/png',
+          bounds: payload.bounds || null
+        });
+
+        return {
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute,
+          query: this.fullscreenQuery
+        };
+      }
+
+      if (payload.action === 'start-read-recite') {
+        const session = buildAnswerProgressFromReadRecite(payload);
+
+        this.currentStep = 'answer-progress';
+        this.viewMode = 'fullscreen';
+        this.fullscreenRoute = '/ask/answer-progress';
+        this.fullscreenQuery = {
+          sourceType: 'read-recite',
+          reciteType: session.reciteType,
+          tab: session.tab
+        };
+        this.saveAnswerProgressState(session);
+
+        return {
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute,
+          query: this.fullscreenQuery
+        };
+      }
+
+      if (payload.action === 'finish-answer-progress' || payload.action === 'finish-read-recite') {
+        const session = this.answerProgressState || {};
+
+        if (session.sourceType === 'screenshot') {
+          finalizeScreenshotSession(this);
+          return this.resetFlow();
+        }
+
+        if (session.sourceType === 'voice') {
+          const analysis = buildVoiceAnalysis(session);
+
+          this.currentStep = 'voice-analysis';
+          this.viewMode = 'fullscreen';
+          this.fullscreenRoute = '/ask/voice-analysis';
+          this.fullscreenQuery = {
+            sourceType: 'voice',
+            ...(session.deferQuestionSetup ? { deferQuestion: '1' } : {})
+          };
+          this.saveVoiceAnalysisState(analysis);
+
+          return {
+            displayMode: 'fullscreen',
+            route: this.fullscreenRoute,
+            query: this.fullscreenQuery
+          };
+        }
+
+        const analysis = buildReadReciteAnalysis(session);
+
+        this.currentStep = 'read-recite-analysis';
+        this.viewMode = 'fullscreen';
+        this.fullscreenRoute = '/ask/read-recite-analysis';
+        this.fullscreenQuery = {
+          sourceType: session.sourceType || 'read-recite',
+          reciteType: analysis.reciteType,
+          tab: analysis.tab
+        };
+        this.saveReadReciteAnalysisState(analysis);
+
+        return {
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute,
+          query: this.fullscreenQuery
+        };
+      }
+
       if (payload.action === 'open-select-question') {
         this.currentStep = 'select-question';
         this.viewMode = 'small-page';
@@ -198,8 +492,15 @@ export const useFlowStore = defineStore('flow', {
       const isBatchAnalysis =
         this.currentStep === 'batch-analysis' ||
         this.fullscreenRoute === '/ask/multi-batch-analysis';
+      const isReadReciteAnalysis =
+        this.currentStep === 'read-recite-analysis' ||
+        this.fullscreenRoute === '/ask/read-recite-analysis' ||
+        this.currentStep === 'voice-analysis' ||
+        this.fullscreenRoute === '/ask/voice-analysis';
       const widgetType = isBatchAnalysis
         ? 'multi-batch-compact'
+        : isReadReciteAnalysis
+        ? 'read-recite-analysis-compact'
         : 'analysis-compact';
 
       return {
@@ -229,9 +530,17 @@ export const useFlowStore = defineStore('flow', {
       this.minimizedFrom = 'fullscreen';
       this.viewMode = 'minimized';
 
+      const widgetType =
+        this.fullscreenRoute === '/ask/read-recite-analysis' ||
+        this.fullscreenRoute === '/ask/voice-analysis'
+          ? 'read-recite-analysis-compact'
+          : this.fullscreenRoute === '/ask/multi-batch-analysis'
+          ? 'multi-batch-compact'
+          : 'analysis-compact';
+
       return {
         viewMode: this.viewMode,
-        widgetType: 'analysis-compact',
+        widgetType,
         widgetTitle: title || '答题分析'
       };
     },
@@ -271,6 +580,19 @@ export const useFlowStore = defineStore('flow', {
         this.currentStep = 'batch-analysis';
       } else if (this.fullscreenRoute === '/ask/objective-detail') {
         this.currentStep = 'single-analysis';
+      } else if (
+        this.fullscreenRoute === '/ask/answer-progress' ||
+        this.fullscreenRoute === '/ask/read-recite-progress'
+      ) {
+        this.currentStep = 'answer-progress';
+      } else if (this.fullscreenRoute === '/ask/read-recite-analysis') {
+        this.currentStep = 'read-recite-analysis';
+      } else if (this.fullscreenRoute === '/ask/read-recite-student-analysis') {
+        this.currentStep = 'read-recite-student-analysis';
+      } else if (this.fullscreenRoute === '/ask/voice-analysis') {
+        this.currentStep = 'voice-analysis';
+      } else if (this.fullscreenRoute === '/ask/voice-student-analysis') {
+        this.currentStep = 'voice-student-analysis';
       }
 
       return {
@@ -288,6 +610,46 @@ export const useFlowStore = defineStore('flow', {
     // 保存多题批次分析上下文，供缩屏与全屏共享。
     saveBatchAnalysisState(payload) {
       this.batchAnalysisState = payload;
+    },
+
+    // 保存通用答题进行中上下文，供全屏页展示。
+    saveAnswerProgressState(payload) {
+      this.answerProgressState = payload;
+    },
+
+    // 兼容旧调用，统一写入 answerProgressState。
+    saveReadReciteState(payload) {
+      this.saveAnswerProgressState(payload);
+    },
+
+    // 保存背读判分页上下文，供全屏页展示与 IPC 实时更新。
+    saveReadReciteAnalysisState(payload) {
+      this.readReciteAnalysisState = payload;
+    },
+
+    // 保存语音出题录入内容，供后续答题与分析流程使用。
+    saveVoiceQuestionState(payload) {
+      this.voiceQuestionState = payload;
+    },
+
+    // 保存语音分析页上下文，供全屏页展示与 IPC 实时更新。
+    saveVoiceAnalysisState(payload) {
+      this.voiceAnalysisState = payload;
+    },
+
+    // 保存语音学生详情页当前学生索引。
+    saveVoiceStudentIndex(index) {
+      this.voiceStudentIndex = Number.isFinite(index) ? index : 0;
+    },
+
+    // 保存背读学生详情页当前学生索引。
+    saveReadReciteStudentIndex(index) {
+      this.readReciteStudentIndex = Number.isFinite(index) ? index : 0;
+    },
+
+    // 保存截屏出题图片数据，供后续题目展示与答题流程使用。
+    saveScreenshotQuestionState(payload) {
+      this.screenshotQuestionState = payload;
     },
 
     // 记录缩屏父级 widget，供单题分析缩屏「返回」时恢复。
@@ -318,8 +680,15 @@ export const useFlowStore = defineStore('flow', {
       };
     },
 
+    // 清空截屏会话内存态；本地文件由 Node 在同步后删除。
+    clearScreenshotSessionState() {
+      this.answerProgressState = null;
+      this.screenshotQuestionState = null;
+    },
+
     // 关闭任意业务形态，结束整条业务流程。
     resetFlow() {
+      releaseSessionImageMemory(this.answerProgressState || {});
       Object.assign(this, INITIAL_STATE);
 
       return {

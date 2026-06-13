@@ -43,12 +43,19 @@ let updateTimer;
 let updateFrame;
 
 // 收集当前可交互区域，交给 Electron 透明窗口命中测试使用。
+function collectInteractiveRegionElements() {
+  const hitboxNodes = document.querySelectorAll('[data-overlay-hitbox="true"]');
+  const popperNodes = document.querySelectorAll(".el-popper");
+
+  return [...hitboxNodes, ...popperNodes];
+}
+
 function collectInteractiveRegions() {
   if (isFullscreenRoute.value && classStarted.value) {
     return [];
   }
 
-  return Array.from(document.querySelectorAll('[data-overlay-hitbox="true"]'))
+  return collectInteractiveRegionElements()
     .filter((element) => {
       const style = window.getComputedStyle(element);
       return (

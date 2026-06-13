@@ -25,7 +25,10 @@
 - `src/router/`：路由配置目录。新增页面路由时只在这里集中注册，避免组件内散落硬编码跳转。
 - `src/views/`：页面级 Vue 文件。只有能被路由直接访问的页面放在这里。
   - `src/views/ask/AskFullscreenView.vue`：问业务全屏承载页，负责全屏态自己的按钮和页面内交互。
-  - `src/views/ask/widgets/`：问业务普通小屏和缩屏内容组件。组件只负责内容和发出业务事件，窗口外壳能力不要写在这里。
+  - `src/views/ask/widgets/`：问业务普通小屏和缩屏内容组件（客观题为主）。组件只负责内容和发出业务事件，窗口外壳能力不要写在这里。
+  - `src/views/ask/subjective/`：主观题（背诵 / 朗读等）小屏与内容组件。
+    - `subjective/widgets/`：主观题普通小屏承载页，如 `ReadReciteWidget.vue`。
+    - `subjective/components/`：主观题小屏内的 Tab 面板等业务子组件。
 - `src/components/`：可复用组件目录。组件自己的结构、交互和局部样式尽量收敛在组件文件内。
   - `src/components/widget/WidgetHost.vue`：小屏和缩屏的统一宿主，负责根据流程状态渲染普通小屏、缩屏或最小化按钮。
   - `src/components/widget/WidgetShell.vue`：只服务缩屏形态，负责拖动、缩放、关闭、最小化、全屏等窗口外壳能力。

@@ -1,10 +1,12 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, screen } = require('electron');
 const path = require('path');
 const { createBackend } = require('../server/backend.cjs');
+const { createScreenshotService } = require('./screenshot.cjs');
 
 const isDev = !app.isPackaged;
 let overlayWindow;
 let backend;
+let screenshotService;
 let interactiveRegions = [];
 let fullscreenPage = false;
 let passthroughEnabled = false;
@@ -133,16 +135,33 @@ function registerIpc() {
 
   ipcMain.handle('app:get-version', () => app.getVersion());
 
+  ipcMain.handle('screenshot:start-region', async () => {
+    if (!screenshotService) {
+      return {
+        ok: false,
+        cancelled: true,
+        error: 'screenshot_unavailable'
+      };
+    }
+
+    return screenshotService.startRegionCapture();
+  });
+
   ipcMain.handle('app:quit', () => {
     app.quit();
   });
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.electron.skd');
+  }
+
   backend = createBackend();
   await backend.start();
   registerIpc();
   createOverlayWindow();
+  screenshotService = createScreenshotService({ overlayWindow });
 
   overlayWindow.once('ready-to-show', () => {
     applyMousePassthrough(true);

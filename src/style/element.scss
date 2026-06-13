@@ -75,3 +75,61 @@
 .set-batch-answers-dialog {
   z-index: 2147483647 !important;
 }
+
+.select-textbook-dialog-overlay {
+  z-index: 2147483646 !important;
+  background-color: rgba(17, 20, 24, 0.28);
+}
+
+.select-textbook-dialog {
+  z-index: 2147483647 !important;
+  border-radius: 20px;
+  padding: 8px 8px 4px;
+  box-shadow: var(--ez-shadow-4);
+
+  .el-dialog__header {
+    padding: 20px 24px 8px;
+    margin-right: 0;
+  }
+
+  .el-dialog__body {
+    padding: 8px 24px 16px;
+  }
+
+  .el-dialog__footer {
+    padding: 8px 24px 20px;
+  }
+}
+
+.paragraph-selection-dialog-overlay {
+  z-index: 2147483646 !important;
+  background-color: rgba(17, 20, 24, 0.28);
+}
+
+.paragraph-selection-dialog {
+  z-index: 2147483647 !important;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--ez-shadow-4);
+
+  .el-dialog__header {
+    padding: 24px 24px 12px;
+    margin-right: 0;
+    border-bottom: 1px solid var(--ez-n150);
+  }
+
+  .el-dialog__body {
+    padding: 24px;
+  }
+
+  .el-dialog__footer {
+    padding: 16px 24px;
+    background-color: var(--ez-n50);
+    border-top: 1px solid var(--ez-n150);
+  }
+}
+
+// Element Plus 下拉/弹出层默认 z-index 较低，在 Electron 小屏（2147483646）之上显示并接收点击。
+.el-popper {
+  z-index: 2147483647 !important;
+}

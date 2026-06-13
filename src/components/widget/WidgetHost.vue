@@ -309,7 +309,8 @@ function handleFlowAction(payload) {
 
   if (target.displayMode === 'small-page' && target.pageType) {
     widgetStore.closeWidget();
-    smallPageStore.openPage(target.pageType, target.props);
+    const preserveDrag = smallPageStore.activePage?.position === 'draggable';
+    smallPageStore.openPage(target.pageType, target.props, { preserveDrag });
   }
 
   if (target.displayMode === 'compact' && target.widgetType) {

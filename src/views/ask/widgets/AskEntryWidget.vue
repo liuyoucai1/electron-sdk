@@ -74,7 +74,7 @@
             <button class="btn-teal" type="button" @click="handleImpromptu('语音')">
               语音
             </button>
-            <button class="btn-teal" type="button" @click="handleImpromptu('拍照')">
+            <button class="btn-teal is-disabled" type="button" disabled>
               拍照
             </button>
           </div>
@@ -203,12 +203,15 @@ function handleImpromptu(type) {
     return;
   }
 
-  // 主观题：背诵 / 朗读 / 语音 / 拍照 → 背读流程。
+  // 主观题：背诵 / 朗读 → 背读流程；语音 → 出题方式小屏。
+  if (type === '语音') {
+    emit('flow-action', { action: 'open-voice-question' });
+    return;
+  }
+
   const reciteTypeMap = {
     '背诵': 'recite',
     '朗读': 'read',
-    '语音': 'voice',
-    '拍照': 'photo'
   };
 
   emit('flow-action', {
@@ -382,6 +385,19 @@ function handleSelectMode(mode) {
 
   &:active {
     transform: scale(0.97);
+  }
+
+  &.is-disabled,
+  &:disabled {
+    background-color: var(--ez-n200);
+    color: var(--ez-n400);
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+
+    &:hover {
+      background-color: var(--ez-n200);
+    }
   }
 }
 

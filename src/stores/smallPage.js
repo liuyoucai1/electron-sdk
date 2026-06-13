@@ -39,7 +39,7 @@ const SMALL_PAGE_PRESETS = {
   },
   "read-recite": {
     title: "背读",
-    width: 975,
+    width: 970,
     height: 710,
     position: "center",
   },
@@ -48,6 +48,20 @@ const SMALL_PAGE_PRESETS = {
     width: 975,
     height: 710,
     position: "center",
+  },
+  "voice-question-method": {
+    title: "语音出题",
+    width: 385,
+    height: 325,
+    position: "draggable",
+    initialAnchor: "follow-ball",
+  },
+  "voice-question-input": {
+    title: "语音出题",
+    width: 420,
+    height: 380,
+    position: "draggable",
+    initialAnchor: "follow-ball",
   },
 };
 
@@ -92,7 +106,7 @@ export const useSmallPageStore = defineStore("smallPage", {
   },
   actions: {
     // 打开普通小屏页面，只写入业务承载所需的最小信息。
-    openPage(type, props = {}) {
+    openPage(type, props = {}, options = {}) {
       const preset = SMALL_PAGE_PRESETS[type];
 
       if (!preset) {
@@ -100,6 +114,7 @@ export const useSmallPageStore = defineStore("smallPage", {
         return;
       }
 
+      const prevPage = this.activePage;
       const page = {
         id: `small-page-${type}`,
         type,
@@ -139,6 +154,16 @@ export const useSmallPageStore = defineStore("smallPage", {
             anchor.top != null
               ? anchor.top
               : window.innerHeight - anchorHeight - (anchor.bottom || 0);
+        }
+
+        if (
+          options.preserveDrag &&
+          prevPage?.position === "draggable" &&
+          prevPage.dragX != null &&
+          prevPage.dragY != null
+        ) {
+          page.dragX = prevPage.dragX;
+          page.dragY = prevPage.dragY;
         }
       }
 

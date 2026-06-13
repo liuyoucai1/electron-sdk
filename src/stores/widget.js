@@ -12,6 +12,12 @@ const WIDGET_PRESETS = {
     width: 400,
     height: 800,
     position: "right",
+  },
+  "read-recite-analysis-compact": {
+    title: "背诵分析",
+    width: 400,
+    height: 800,
+    position: "right",
   }
 };
 

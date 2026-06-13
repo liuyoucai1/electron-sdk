@@ -1,4 +1,8 @@
 const http = require('http');
+const {
+  saveScreenshotAsset,
+  releaseScreenshotAsset
+} = require('./sessionAssets.cjs');
 
 function createBackend() {
   let server;
@@ -49,6 +53,16 @@ function createBackend() {
           timestamp: new Date().toISOString()
         }
       };
+    }
+
+    // 会话结束：截屏题目落本地库，等待 Node 有网后同步 OSS / 后端。
+    if (type === 'save-session-screenshot') {
+      return saveScreenshotAsset(request);
+    }
+
+    // 同步完成后释放本地截屏文件。
+    if (type === 'release-session-screenshot') {
+      return releaseScreenshotAsset(request.assetId);
     }
 
     return {
