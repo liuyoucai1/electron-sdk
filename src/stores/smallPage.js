@@ -10,13 +10,14 @@ import { defineStore } from "pinia";
 //   'content' — 高度随内容自适应，超过 maxHeight 后内部滚动，外壳不再撑高
 //
 // initialAnchor: 'follow-ball' 时初始贴胶囊（与 ask-entry 一致），之后仍可拖拽。
-// hideFloatingBall: true 时该小屏打开期间强制隐藏胶囊。
+// showFloatingBall: true 时该小屏可与胶囊同时显示；未设置则默认隐藏胶囊。
 const SMALL_PAGE_PRESETS = {
   "ask-entry": {
     title: "发起提问",
     width: 470,
     height: 640,
     position: "follow-ball",
+    showFloatingBall: true,
   },
   "answer-progress": {
     title: "答题进行中",
@@ -26,7 +27,6 @@ const SMALL_PAGE_PRESETS = {
     maxHeight: 500,
     initialHeight: 200,
     defaultAnchor: { right: 50, bottom: 50 },
-    hideFloatingBall: true,
   },
   "multi-question": {
     title: "多题提问",
@@ -45,8 +45,8 @@ const SMALL_PAGE_PRESETS = {
   },
   "select-question": {
     title: "选题提问",
-    width: 975,
-    height: 710,
+    width: 1260,
+    height: 920,
     position: "center",
   },
   "voice-question-method": {
@@ -55,6 +55,7 @@ const SMALL_PAGE_PRESETS = {
     height: 325,
     position: "draggable",
     initialAnchor: "follow-ball",
+    showFloatingBall: true,
   },
   "voice-question-input": {
     title: "语音出题",
@@ -62,6 +63,7 @@ const SMALL_PAGE_PRESETS = {
     height: 380,
     position: "draggable",
     initialAnchor: "follow-ball",
+    showFloatingBall: true,
   },
 };
 
@@ -100,9 +102,9 @@ export const useSmallPageStore = defineStore("smallPage", {
     ...INITIAL_STATE,
   }),
   getters: {
-    // 当前小屏是否要求隐藏胶囊。
+    // 当前小屏是否要求隐藏胶囊（仅白名单小屏可与胶囊共存）。
     shouldHideFloatingBall: (state) =>
-      state.activePage?.hideFloatingBall === true,
+      Boolean(state.activePage && state.activePage.showFloatingBall !== true),
   },
   actions: {
     // 打开普通小屏页面，只写入业务承载所需的最小信息。
@@ -124,7 +126,10 @@ export const useSmallPageStore = defineStore("smallPage", {
         heightMode: preset.heightMode || "fixed",
         maxHeight: preset.maxHeight || null,
         position: preset.position,
-        hideFloatingBall: Boolean(preset.hideFloatingBall),
+        showFloatingBall:
+          options.showFloatingBall !== undefined
+            ? options.showFloatingBall
+            : preset.showFloatingBall === true,
         props,
       };
 

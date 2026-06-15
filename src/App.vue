@@ -26,11 +26,13 @@ import ClassroomLauncher from './components/ClassroomLauncher.vue';
 import FloatingBall from './components/FloatingBall.vue';
 import WidgetHost from './components/widget/WidgetHost.vue';
 import { useFlowStore } from './stores/flow';
+import { useOverlayStore } from './stores/overlay';
 import { useSmallPageStore } from './stores/smallPage';
 import { useWidgetStore } from './stores/widget';
 
 const route = useRoute();
 const flowStore = useFlowStore();
+const overlayStore = useOverlayStore();
 const smallPageStore = useSmallPageStore();
 const widgetStore = useWidgetStore();
 const classStarted = ref(false);
@@ -38,10 +40,11 @@ const classSession = ref();
 const isFullscreenRoute = computed(() => Boolean(route.meta.fullscreen));
 const showFloatingBall = computed(
   () =>
-    flowStore.viewMode === 'idle' &&
     !isFullscreenRoute.value &&
     !flowStore.shouldHideFloatingBall &&
-    !smallPageStore.shouldHideFloatingBall
+    !smallPageStore.shouldHideFloatingBall &&
+    !overlayStore.shouldHideFloatingBall &&
+    (flowStore.viewMode === 'idle' || flowStore.viewMode === 'small-page')
 );
 let updateTimer;
 let updateFrame;
@@ -125,13 +128,21 @@ function handleQuickAction(actionKey) {
 
   // 再次点击"问"时关闭当前普通小屏，回到 idle。
   if (target.viewMode === 'idle') {
+    overlayStore.resetOverlays();
     smallPageStore.closePage();
     widgetStore.closeWidget();
+    if (!isFullscreenRoute.value) {
+      window.electronBridge?.setMousePassthrough(true);
+    }
     nextTick(scheduleInteractiveRegionUpdate);
     return;
   }
 
-  smallPageStore.openPage(target.pageType, target.props);
+  smallPageStore.openPage(target.pageType, target.props, {
+    ...(target.showFloatingBall !== undefined
+      ? { showFloatingBall: target.showFloatingBall }
+      : {}),
+  });
   widgetStore.closeWidget();
   nextTick(scheduleInteractiveRegionUpdate);
 }

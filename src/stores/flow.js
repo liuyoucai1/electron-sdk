@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { buildAnswerProgressFromQuestionBatch } from '../views/ask/utils/buildAnswerProgressBatch.js';
 import {
   buildAnswerProgressFromReadRecite,
   buildAnswerProgressFromScreenshot,
@@ -29,6 +30,8 @@ const ASK_ACTION_HANDLERS = {
   'start-read-recite': 'startReadRecite',
   'finish-answer-progress': 'finishAnswerProgress',
   'finish-read-recite': 'finishAnswerProgress',
+  'next-answer-progress-question': 'nextAnswerProgressQuestion',
+  'start-question-batch-progress': 'startQuestionBatchProgress',
   'open-select-question': 'openSelectQuestion'
 };
 
@@ -47,14 +50,22 @@ const ANSWER_PROGRESS_ENTRY_TARGETS = {
     nextStep: 'batch-analysis',
     nextViewMode: 'fullscreen',
     fullscreenRoute: '/ask/multi-batch-analysis'
+  },
+  'select-question': {
+    nextStep: 'single-analysis',
+    nextViewMode: 'fullscreen',
+    fullscreenRoute: '/ask/objective-detail'
   }
 };
 
 const FINISH_ANSWERING_TARGETS = {
   'ask-entry': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' },
   'fullscreen-analysis': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' },
-  'multi-question': { step: 'batch-analysis', mode: 'fullscreen', route: '/ask/multi-batch-analysis' }
+  'multi-question': { step: 'batch-analysis', mode: 'fullscreen', route: '/ask/multi-batch-analysis' },
+  'select-question': { step: 'single-analysis', mode: 'fullscreen', route: '/ask/objective-detail' }
 };
+
+const QUESTION_BATCH_FINISH_TARGET = FINISH_ANSWERING_TARGETS['multi-question'];
 
 const FULLSCREEN_ROUTE_STEPS = {
   '/ask/multi-batch-analysis': 'batch-analysis',
@@ -112,7 +123,8 @@ export const useFlowStore = defineStore('flow', {
     isFullscreen: (state) => state.viewMode === 'fullscreen',
     isSmallPageVisible: (state) => state.viewMode === 'small-page',
     isCompactVisible: (state) => ['compact', 'minimized'].includes(state.viewMode),
-    shouldHideFloatingBall: (state) => state.viewMode !== 'idle'
+    shouldHideFloatingBall: (state) =>
+      ['fullscreen', 'compact', 'minimized'].includes(state.viewMode)
   },
   actions: {
     startAskFlow() {
@@ -149,19 +161,22 @@ export const useFlowStore = defineStore('flow', {
       return this[handlerName](payload);
     },
 
-    createSmallPageTarget(pageType, props = {}) {
+    createSmallPageTarget(pageType, props = {}, options = {}) {
       return {
         displayMode: 'small-page',
         pageType,
-        props
+        props,
+        ...(options.showFloatingBall !== undefined
+          ? { showFloatingBall: options.showFloatingBall }
+          : {}),
       };
     },
 
-    openSmallPage(step, pageType, props = {}) {
+    openSmallPage(step, pageType, props = {}, options = {}) {
       this.currentStep = step;
       this.viewMode = 'small-page';
 
-      return this.createSmallPageTarget(pageType, props);
+      return this.createSmallPageTarget(pageType, props, options);
     },
 
     openFullscreen(step, route, query = null) {
@@ -275,10 +290,15 @@ export const useFlowStore = defineStore('flow', {
 
     openVoiceQuestionFromAnalysis() {
       this.voiceQuestionInputContext = 'analysis';
-      return this.openSmallPage('voice-question-input', 'voice-question-input', {
-        sessionId: this.sessionId,
-        fromAnalysis: true
-      });
+      return this.openSmallPage(
+        'voice-question-input',
+        'voice-question-input',
+        {
+          sessionId: this.sessionId,
+          fromAnalysis: true,
+        },
+        { showFloatingBall: false },
+      );
     },
 
     cancelVoiceQuestionFromAnalysis() {
@@ -320,9 +340,14 @@ export const useFlowStore = defineStore('flow', {
     },
 
     backVoiceQuestionMethod() {
-      return this.openSmallPage('voice-question-method', 'voice-question-method', {
-        sessionId: this.sessionId
-      });
+      return this.openSmallPage(
+        'voice-question-method',
+        'voice-question-method',
+        {
+          sessionId: this.sessionId,
+        },
+        { showFloatingBall: this.voiceQuestionInputContext !== 'analysis' },
+      );
     },
 
     startVoiceQuestion(payload) {
@@ -396,8 +421,75 @@ export const useFlowStore = defineStore('flow', {
       return this.openFullscreen('answer-progress', '/ask/answer-progress', query);
     },
 
+    startQuestionBatchProgress(payload) {
+      const session = buildAnswerProgressFromQuestionBatch(payload);
+      this.currentStep = 'answer-progress';
+      this.viewMode = 'fullscreen';
+      this.answerProgressEntry = payload.entrySource || 'select-question';
+      this.batchSize = session.questions.length;
+      this.currentQuestionIndex = 0;
+      this.batchId = `batch-${Date.now()}`;
+
+      this.saveAnswerProgressState(session);
+
+      const query = {
+        sourceType: 'question-batch',
+        entrySource: this.answerProgressEntry,
+        batchSize: session.questions.length
+      };
+
+      return this.openFullscreen('answer-progress', '/ask/answer-progress', query);
+    },
+
+    nextAnswerProgressQuestion() {
+      const session = this.answerProgressState || {};
+      if (session.sourceType !== 'question-batch') {
+        return null;
+      }
+
+      const questions = Array.isArray(session.questions) ? session.questions : [];
+      const nextIndex = Number(session.currentQuestionIndex || 0) + 1;
+      if (nextIndex >= questions.length) {
+        return null;
+      }
+
+      this.currentQuestionIndex = nextIndex;
+      this.saveAnswerProgressState({
+        ...session,
+        currentQuestionIndex: nextIndex
+      });
+
+      return null;
+    },
+
     finishAnswerProgress() {
       const session = this.answerProgressState || {};
+
+      if (session.sourceType === 'question-batch') {
+        const entry = session.entrySource || 'select-question';
+        const target = QUESTION_BATCH_FINISH_TARGET;
+
+        this.currentStep = target.step;
+        this.viewMode = target.mode;
+        this.fullscreenRoute = target.route;
+        this.nextStep = null;
+        this.nextViewMode = null;
+
+        const query = {
+          entrySource: entry,
+          batchSize: session.questions?.length || 0,
+          sourceType: 'question-batch',
+          tab: session.tab || ''
+        };
+
+        this.answerProgressEntry = null;
+
+        return {
+          displayMode: 'fullscreen',
+          route: this.fullscreenRoute,
+          query
+        };
+      }
 
       if (session.sourceType === 'screenshot') {
         finalizeScreenshotSession(this);
@@ -429,7 +521,7 @@ export const useFlowStore = defineStore('flow', {
     openSelectQuestion(payload) {
       return this.openSmallPage('select-question', 'select-question', {
         sessionId: this.sessionId,
-        source: payload.source
+        initialTab: payload.initialTab || payload.source || 'self',
       });
     },
 

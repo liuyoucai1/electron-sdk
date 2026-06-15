@@ -76,7 +76,11 @@ export function useAskFullscreenControls() {
     widgetStore.closeWidget();
 
     if (target.displayMode === "small-page" && target.pageType) {
-      smallPageStore.openPage(target.pageType, target.props || {});
+      smallPageStore.openPage(target.pageType, target.props || {}, {
+        ...(target.showFloatingBall !== undefined
+          ? { showFloatingBall: target.showFloatingBall }
+          : {}),
+      });
       await router.replace("/");
       await nextTick();
       notifyOverlayHitboxesChanged();

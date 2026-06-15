@@ -248,6 +248,8 @@ async function handleMinimize() {
 async function handleClose() {
   await closeAskFlow();
 }
+
+
 </script>
 
 <style scoped lang="scss">

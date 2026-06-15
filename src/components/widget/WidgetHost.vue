@@ -1,10 +1,11 @@
 <template>
   <section
     v-if="flowStore.viewMode === 'small-page' && currentSmallPage"
+    v-show="!overlayStore.shouldHideSmallPageHost"
     ref="hostEl"
     class="small-page-host"
     :class="{ 'is-draggable': isDraggablePage, 'is-content-height': isContentHeight }"
-    data-overlay-hitbox="true"
+    :data-overlay-hitbox="overlayStore.shouldHideSmallPageHost ? undefined : 'true'"
     :style="smallPageStyle"
     @pointerdown="onSmallPagePointerDown"
   >
@@ -46,15 +47,18 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useFlowStore } from '../../stores/flow';
+import { useOverlayStore } from '../../stores/overlay';
 import { useSmallPageStore } from '../../stores/smallPage';
 import { useWidgetStore } from '../../stores/widget';
 import WidgetShell from './WidgetShell.vue';
 import { widgetRegistry } from './widgetRegistry';
 
 const router = useRouter();
+const route = useRoute();
 const flowStore = useFlowStore();
+const overlayStore = useOverlayStore();
 const smallPageStore = useSmallPageStore();
 const widgetStore = useWidgetStore();
 
@@ -285,9 +289,13 @@ function handleFlowAction(payload) {
   }
 
   if (target.viewMode === 'idle') {
+    overlayStore.resetOverlays();
     smallPageStore.closePage();
     widgetStore.closeWidget();
     router.replace(target.route);
+    if (!route.meta?.fullscreen) {
+      window.electronBridge?.setMousePassthrough(true);
+    }
     nextTick(() => {
       document.dispatchEvent(new CustomEvent('overlay-hitboxes-changed'));
     });
@@ -310,7 +318,12 @@ function handleFlowAction(payload) {
   if (target.displayMode === 'small-page' && target.pageType) {
     widgetStore.closeWidget();
     const preserveDrag = smallPageStore.activePage?.position === 'draggable';
-    smallPageStore.openPage(target.pageType, target.props, { preserveDrag });
+    smallPageStore.openPage(target.pageType, target.props, {
+      preserveDrag,
+      ...(target.showFloatingBall !== undefined
+        ? { showFloatingBall: target.showFloatingBall }
+        : {}),
+    });
   }
 
   if (target.displayMode === 'compact' && target.widgetType) {

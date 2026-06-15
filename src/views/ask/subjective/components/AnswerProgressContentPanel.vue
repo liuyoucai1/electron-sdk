@@ -10,6 +10,10 @@
       <div v-else class="content-empty">暂无题目图片</div>
     </div>
 
+    <div v-else-if="contentType === 'objective'" class="objective-content-wrapper">
+      <p class="objective-stem">{{ objectiveStem }}</p>
+    </div>
+
     <template v-else>
       <div v-if="deferQuestionSetup" class="content-deferred-placeholder">
         <p class="placeholder-title">暂无题目内容</p>
@@ -61,6 +65,10 @@ const props = defineProps({
     type: String,
     default: "答题",
   },
+  objectiveStem: {
+    type: String,
+    default: "",
+  },
 });
 
 const hiddenPlaceholder = computed(
@@ -105,6 +113,21 @@ const hiddenPlaceholder = computed(
   color: var(--ez-n400);
   font-size: 16px;
   font-weight: 700;
+}
+
+.objective-content-wrapper {
+  flex: 1;
+  min-height: 0;
+  max-width: 850px;
+}
+
+.objective-stem {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ez-n900);
+  line-height: 1.8;
+  white-space: pre-line;
 }
 
 .html-content-wrapper {

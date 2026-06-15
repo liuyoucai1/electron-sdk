@@ -86,11 +86,14 @@
         ✕
       </button>
     </div>
+
+    <AnswerProgressCancelDialog ref="cancelDialogRef" />
   </section>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import AnswerProgressCancelDialog from "../components/AnswerProgressCancelDialog.vue";
 
 const props = defineProps({
   sessionId: { type: String, default: "" },
@@ -101,7 +104,9 @@ const props = defineProps({
 
 const emit = defineEmits(["flow-action"]);
 
-// 收起/展开状态。默认收起，高度随内容自适应，展开后由外壳 maxHeight(500) 限制并内部滚动。
+const cancelDialogRef = ref(null);
+
+// 收起/展开状态。默认收起，高度随内容自适应，展开后由外壳 maxHeight 限制并内部滚动。
 const collapsed = ref(true);
 
 // 切换学生网格显隐，外壳高度自动适应内容，无需手动指定高度。
@@ -161,8 +166,13 @@ function handleEnd() {
   emit("flow-action", { action: "finish-answering" });
 }
 
-// 关闭答题进程，断链回到 idle。
-function handleClose() {
+// 关闭前先确认是否取消答题，确认后才断链回到 idle。
+async function handleClose() {
+  const shouldCancel = await cancelDialogRef.value?.handleOpen();
+  if (!shouldCancel) {
+    return;
+  }
+
   emit("flow-action", { action: "close-flow" });
 }
 </script>
@@ -185,7 +195,7 @@ function handleClose() {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 12px 16px 8px;
+  padding: 18px 24px 12px;
   background: #f7faf9;
   cursor: grab;
   flex-shrink: 0;
@@ -198,14 +208,14 @@ function handleClose() {
 .time-box {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .timer-desc {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 700;
   color: #94a3b8;
 }
@@ -213,35 +223,35 @@ function handleClose() {
 /* CSS 时钟图标 */
 .icon-clock {
   display: inline-block;
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid #94a3b8;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #94a3b8;
   border-radius: 50%;
   position: relative;
 
   &::after {
     content: "";
     position: absolute;
-    top: 2px;
-    left: 4px;
-    width: 1px;
-    height: 3px;
+    top: 3px;
+    left: 6px;
+    width: 1.5px;
+    height: 4px;
     background-color: #94a3b8;
   }
 
   &::before {
     content: "";
     position: absolute;
-    top: 4px;
-    left: 4px;
-    width: 2px;
-    height: 1px;
+    top: 6px;
+    left: 6px;
+    width: 3px;
+    height: 1.5px;
     background-color: #94a3b8;
   }
 }
 
 .timer-display {
-  font-size: 20px;
+  font-size: 30px;
   font-weight: 800;
   color: #1e293b;
   line-height: 1;
@@ -252,25 +262,25 @@ function handleClose() {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 6px;
 
   .ratio-num {
     line-height: 1;
 
     .current {
-      font-size: 18px;
+      font-size: 27px;
       font-weight: 800;
       color: #529b85;
     }
 
     .total {
-      font-size: 11px;
+      font-size: 16px;
       color: #94a3b8;
     }
   }
 
   .ratio-label {
-    font-size: 10px;
+    font-size: 15px;
     font-weight: 700;
     color: #94a3b8;
   }
@@ -278,7 +288,7 @@ function handleClose() {
 
 /* ========== 进度条 ========== */
 .progress-bar-container {
-  padding: 0 16px 8px;
+  padding: 0 24px 12px;
   background: #f7faf9;
   border-bottom: 1px solid #f1f5f9;
   flex-shrink: 0;
@@ -286,8 +296,8 @@ function handleClose() {
 
 .split-progress-bar {
   display: flex;
-  height: 5px;
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
   overflow: hidden;
   background: #e2e8f0;
 
@@ -314,26 +324,26 @@ function handleClose() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 16px;
+  padding: 12px 24px;
   flex-shrink: 0;
 }
 
 .legend-info {
   display: flex;
-  gap: 10px;
+  gap: 15px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
+  gap: 6px;
+  font-size: 15px;
   font-weight: 700;
   color: #78716c;
 
   .dot {
-    width: 5px;
-    height: 5px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
   }
 
@@ -349,16 +359,16 @@ function handleClose() {
 .btn-toggle-grid {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
   border: none;
   background: transparent;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
   color: #529b85;
   cursor: pointer;
 
   .toggle-arrow {
-    font-size: 5px;
+    font-size: 8px;
     transition: transform 0.2s;
     transform: rotate(180deg);
 
@@ -371,7 +381,7 @@ function handleClose() {
 /* ========== 中部学生网格区 ========== */
 .monitor-body {
   flex: 1;
-  padding: 0 16px 10px;
+  padding: 0 24px 15px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -381,7 +391,7 @@ function handleClose() {
 .students-status-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 9px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -391,9 +401,9 @@ function handleClose() {
 .student-badge {
   display: grid;
   place-items: center;
-  height: 28px;
-  border-radius: 8px;
-  font-size: 11px;
+  height: 42px;
+  border-radius: 12px;
+  font-size: 16px;
   font-weight: 700;
 
   &.badge-modifying {
@@ -426,7 +436,7 @@ function handleClose() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px 14px;
+  padding: 15px 24px 21px;
   flex-shrink: 0;
 }
 
@@ -444,24 +454,24 @@ function handleClose() {
   }
 
   &-coral {
-    height: 34px;
-    padding: 0 18px;
-    border-radius: 10px;
+    height: 51px;
+    padding: 0 27px;
+    border-radius: 15px;
     background: #db7373;
     color: #ffffff;
-    font-size: 12px;
+    font-size: 18px;
     box-shadow: 0 4px 12px rgba(219, 115, 115, 0.15);
   }
 
   &-close-icon {
-    width: 34px;
-    height: 34px;
+    width: 51px;
+    height: 51px;
     padding: 0;
-    border-radius: 10px;
+    border-radius: 15px;
     background: #fef2f2;
     border: 1.5px solid #fee2e2;
     color: #f87171;
-    font-size: 13px;
+    font-size: 19px;
   }
 }
 </style>

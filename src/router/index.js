@@ -4,7 +4,7 @@ const HomeView = () => import('../views/HomeView.vue');
 const AskFullscreenView = () => import('../views/ask/AskFullscreenView.vue');
 const ObjectiveQuestionDetail = () => import('../views/ask/ObjectiveQuestionDetail.vue');
 const MultiBatchAnalysisView = () => import('../views/ask/MultiBatchAnalysisView.vue');
-const ReadReciteProgressView = () => import('../views/ask/subjective/ReadReciteProgressView.vue');
+const ReadReciteProgressView = () => import('../views/ask/AnswerProgressView.vue');
 const ReadReciteAnalysisView = () => import('../views/ask/subjective/ReadReciteAnalysisView.vue');
 const ReadReciteStudentAnalysisView = () => import('../views/ask/subjective/ReadReciteStudentAnalysisView.vue');
 const VoiceAnalysisView = () => import('../views/ask/subjective/VoiceAnalysisView.vue');

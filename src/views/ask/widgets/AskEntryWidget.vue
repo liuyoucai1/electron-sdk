@@ -163,6 +163,7 @@
 
 <script setup>
 import { ref } from 'vue';
+import { SELECT_QUESTION_ENTRY_TABS } from '../../../mock/selectQuestion.js';
 
 const emit = defineEmits(['flow-action']);
 
@@ -225,18 +226,11 @@ function handleMultiQuestion() {
   emit('flow-action', { action: 'open-multi-question' });
 }
 
-// 选题提问入口，根据来源打开选题小屏。
+// 打开选题提问小屏，并根据入口定位到对应 Tab。
 function handleSelectMode(mode) {
-  const sourceMap = {
-    '自编': 'self',
-    '共享': 'shared',
-    '教材': 'textbook',
-    '题库': 'bank'
-  };
-
   emit('flow-action', {
     action: 'open-select-question',
-    source: sourceMap[mode] || 'question-bank'
+    initialTab: SELECT_QUESTION_ENTRY_TABS[mode] || 'self',
   });
 }
 </script>

@@ -141,6 +141,16 @@ export function normalizeAnswerProgressSession(session = {}) {
     };
   }
 
+  if (session.sourceType === "question-batch") {
+    return {
+      ...session,
+      questions: Array.isArray(session.questions) ? session.questions : [],
+      currentQuestionIndex: Number(session.currentQuestionIndex) || 0,
+      contentType: "objective",
+      allowHideContent: false,
+    };
+  }
+
   if (session.paragraphs || session.reciteType) {
     return buildAnswerProgressFromReadRecite(session);
   }
