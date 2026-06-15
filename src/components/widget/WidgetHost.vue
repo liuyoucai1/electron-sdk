@@ -49,6 +49,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFlowStore } from '../../stores/flow';
+import { useLayoutStore } from '../../stores/layout';
 import { useOverlayStore } from '../../stores/overlay';
 import { useSmallPageStore } from '../../stores/smallPage';
 import { useWidgetStore } from '../../stores/widget';
@@ -58,6 +59,7 @@ import { widgetRegistry } from './widgetRegistry';
 const router = useRouter();
 const route = useRoute();
 const flowStore = useFlowStore();
+const layoutStore = useLayoutStore();
 const overlayStore = useOverlayStore();
 const smallPageStore = useSmallPageStore();
 const widgetStore = useWidgetStore();
@@ -120,10 +122,13 @@ function clampToViewport() {
   }
 
   const MARGIN = 12;
+  const scale = layoutStore.appScale || 1;
   const width = el.offsetWidth;
   const height = el.offsetHeight;
-  const x = Math.max(MARGIN, Math.min(page.dragX, window.innerWidth - width - MARGIN));
-  const y = Math.max(MARGIN, Math.min(page.dragY, window.innerHeight - height - MARGIN));
+  const visualWidth = width * scale;
+  const visualHeight = height * scale;
+  const x = Math.max(MARGIN, Math.min(page.dragX, window.innerWidth - visualWidth - MARGIN));
+  const y = Math.max(MARGIN, Math.min(page.dragY, window.innerHeight - visualHeight - MARGIN));
 
   if (x !== page.dragX || y !== page.dragY) {
     smallPageStore.updateDragPosition(x, y);
@@ -179,11 +184,14 @@ function onDragMove(event) {
 
   // 限制在视口内，保留 12px 边距。content 模式下高度动态，按外壳实测尺寸夹取。
   const MARGIN = 12;
+  const scale = layoutStore.appScale || 1;
   const el = hostEl.value;
   const width = el ? el.offsetWidth : page.width;
   const height = el ? el.offsetHeight : page.height || 0;
-  newX = Math.max(MARGIN, Math.min(newX, window.innerWidth - width - MARGIN));
-  newY = Math.max(MARGIN, Math.min(newY, window.innerHeight - height - MARGIN));
+  const visualWidth = width * scale;
+  const visualHeight = height * scale;
+  newX = Math.max(MARGIN, Math.min(newX, window.innerWidth - visualWidth - MARGIN));
+  newY = Math.max(MARGIN, Math.min(newY, window.innerHeight - visualHeight - MARGIN));
 
   smallPageStore.updateDragPosition(newX, newY);
 }
@@ -218,17 +226,25 @@ const smallPageStyle = computed(() => {
 
   const pageWidth = page.width;
   const pageHeight = page.height;
+  const scale = layoutStore.appScale || 1;
+  const visualWidth = pageWidth * scale;
+  const visualHeight = pageHeight * scale;
+  const scaleStyle = {
+    transform: `scale(${scale})`,
+    transformOrigin: 'top left'
+  };
 
   // draggable：使用 store 中记录的拖拽位置。
   if (page.position === 'draggable') {
     // content 模式：高度随内容自适应，仅限制最大高度，超出后内部滚动。
     if (page.heightMode === 'content') {
-      const cap = Math.min(page.maxHeight || 600, window.innerHeight - 24);
+      const cap = Math.min(page.maxHeight || 600, (window.innerHeight - 24) / scale);
       return {
         width: `${pageWidth}px`,
         maxHeight: `${cap}px`,
         left: `${page.dragX}px`,
-        top: `${page.dragY}px`
+        top: `${page.dragY}px`,
+        ...scaleStyle
       };
     }
 
@@ -236,7 +252,8 @@ const smallPageStyle = computed(() => {
       width: `${pageWidth}px`,
       height: `${pageHeight}px`,
       left: `${page.dragX}px`,
-      top: `${page.dragY}px`
+      top: `${page.dragY}px`,
+      ...scaleStyle
     };
   }
 
@@ -245,9 +262,9 @@ const smallPageStyle = computed(() => {
     return {
       width: `${pageWidth}px`,
       minHeight: `${pageHeight}px`,
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)'
+      left: `${(window.innerWidth - visualWidth) / 2}px`,
+      top: `${(window.innerHeight - visualHeight) / 2}px`,
+      ...scaleStyle
     };
   }
 
@@ -258,26 +275,27 @@ const smallPageStyle = computed(() => {
   const VIEWPORT_MARGIN = 12;
 
   const rightEdge = ball.x + BALL_RADIUS + GAP;
-  const fitsRight = rightEdge + pageWidth + VIEWPORT_MARGIN <= window.innerWidth;
+  const fitsRight = rightEdge + visualWidth + VIEWPORT_MARGIN <= window.innerWidth;
 
   const leftEdge = ball.x - BALL_RADIUS - GAP;
-  const fitsLeft = leftEdge - pageWidth - VIEWPORT_MARGIN >= 0;
+  const fitsLeft = leftEdge - visualWidth - VIEWPORT_MARGIN >= 0;
 
   let left;
   if (fitsRight || !fitsLeft) {
     left = rightEdge;
   } else {
-    left = leftEdge - pageWidth;
+    left = leftEdge - visualWidth;
   }
 
-  let top = ball.y - pageHeight / 2;
-  top = Math.max(VIEWPORT_MARGIN, Math.min(top, window.innerHeight - pageHeight - VIEWPORT_MARGIN));
+  let top = ball.y - visualHeight / 2;
+  top = Math.max(VIEWPORT_MARGIN, Math.min(top, window.innerHeight - visualHeight - VIEWPORT_MARGIN));
 
   return {
     width: `${pageWidth}px`,
     minHeight: `${pageHeight}px`,
     left: `${left}px`,
-    top: `${top}px`
+    top: `${top}px`,
+    ...scaleStyle
   };
 });
 
@@ -392,8 +410,8 @@ async function handleRestore() {
 .small-page-host {
   position: fixed;
   z-index: 2147483646;
-  max-width: calc(100vw - 48px);
-  max-height: calc(100vh - 48px);
+  max-width: none;
+  max-height: none;
   overflow: auto;
   border-radius: 18px;
   background: #ffffff;

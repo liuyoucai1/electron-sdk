@@ -44,6 +44,7 @@
 - `src/shared/`：跨业务、跨页面、无业务流程依赖的公共能力目录。这里的代码不能直接依赖 `views`、`stores` 或路由。
   - `src/shared/assets/`：通用资源处理，如图片 base64、Blob URL、资源释放。
   - `src/shared/html/`：通用 HTML 文本转义和净化。
+  - `src/shared/layout/`：通用布局计算纯函数，如基于 1920x1080 设计稿计算应用缩放比例。
   - `src/shared/utils/`：纯函数工具，如答案分布判断、数字答案清洗、选题题型判断与 id 查找。
 - `src/style/`：全局 SCSS 目录。
   - `index.scss`：全局样式统一入口，只负责转发/引入其他样式文件。
@@ -51,6 +52,7 @@
   - `element.scss`：Element Plus 默认样式覆盖，只放和 Element Plus 相关的变量或选择器。
 - `src/stores/`：Pinia store。跨组件共享状态放这里，组件私有状态留在组件内。
   - `flow.js`：业务流程真相，维护 `activeFlow`、`currentStep`、`viewMode`、下一步和路由目标。问业务动作通过 `ASK_ACTION_HANDLERS` 分发表进入小型 action 方法，不再把新分支塞进一个巨大的 `handleAskWidgetAction()`。
+  - `layout.js`：全局布局状态，启动时按 1920x1080 设计基座和当前主屏 CSS 视口计算 `appScale`，供普通小屏和缩屏统一缩放。
   - `smallPage.js`：普通小屏页面状态，只维护当前普通小屏的类型、尺寸和 props。
   - `widget.js`：缩屏窗口状态，只维护缩屏的位置、尺寸、缩放、zIndex 和最小化状态。
 - `src/api/`：前端访问 Electron IPC、本地服务或后端能力的封装。可以依赖 `src/shared`，不要依赖 `src/views` 内部工具。
@@ -235,6 +237,16 @@
 - 组件自己的视觉样式默认写在 Vue 组件内部，使用 `<style scoped lang="scss">`。
 - 只有真正的全局工具类、设计 token、基础 reset 或 Element Plus 覆盖才放进 `src/style`。
 - 修改 Element Plus 默认样式时，必须放到 `src/style/element.scss`，优先使用 CSS 变量或窄作用域选择器。
+
+## 自适应缩放约定
+
+- 当前项目以 `1920x1080`、系统缩放 `100%` 作为设计基座，启动时由 `src/stores/layout.js` 调用 `calculateAppScale()` 计算一次 `appScale`。
+- `appScale = min(当前视口宽度 / 1920, 当前视口高度 / 1080) / sqrt(devicePixelRatio)`，并限制在 `0.75` 到 `2` 之间。这里采用半 DPI 补偿，避免高 DPI 屏过大，同时保证主流屏幕和系统推荐缩放下的小屏不会过小。
+- 启动页、普通小屏和缩屏只做外层 `transform: scale(appScale)`；业务组件内部继续按设计尺寸写宽高、间距和字号，不要在组件内部重复计算屏幕比例。
+- 胶囊 / 悬浮球也跟随全局缩放，但保留独立最小触控比例，避免高 DPI 场景下按钮过小影响触控。
+- 普通小屏的初始锚点、居中、跟随胶囊、拖拽边界都按缩放后的视觉尺寸计算；缩屏的默认位置和拖拽边界同样按 `widget.scale` 的视觉尺寸计算。
+- 后续新增普通小屏或缩屏时，只在 `smallPageStore` / `widgetStore` 预设中填写 1920x1080 设计尺寸，不要在业务组件里自行读取 `window.innerWidth` 做局部缩放。
+- 当前策略不处理跨屏移动后的实时重算。若后续允许窗口移动到其他屏幕，再统一扩展 `layoutStore.initializeScale()` 的触发时机和 Electron 主屏信息来源。
 
 ## 开发规范
 

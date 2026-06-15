@@ -67,19 +67,22 @@ import {
   ref,
   watch,
 } from "vue";
+import { useLayoutStore } from "../stores/layout";
 import { useSmallPageStore } from "../stores/smallPage";
 
 const VIEWPORT_MARGIN = 12;
+const MIN_FLOATING_SCALE = 0.6;
 const emit = defineEmits(["dismiss", "quick-action"]);
 
 const layerRef = ref();
 const actionStackRef = ref();
 const expanded = ref(false);
 const dragging = ref(false);
+const layoutStore = useLayoutStore();
 const smallPageStore = useSmallPageStore();
 const position = reactive({
-  x: window.innerWidth - 112,
-  y: window.innerHeight - 130,
+  x: window.innerWidth - 112 * Math.max(layoutStore.appScale || 1, MIN_FLOATING_SCALE),
+  y: window.innerHeight - 130 * Math.max(layoutStore.appScale || 1, MIN_FLOATING_SCALE),
 });
 
 const quickActions = [
@@ -97,13 +100,19 @@ let dragStart = {
 };
 
 const ballStyle = computed(() => ({
-  transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+  left: `${position.x}px`,
+  top: `${position.y}px`,
+  transform: `scale(${floatingScale.value})`,
 }));
+
+// 胶囊跟随全局缩放，但保留最小触控尺寸。
+const floatingScale = computed(() => Math.max(layoutStore.appScale || 1, MIN_FLOATING_SCALE));
 
 // 计算悬浮球在当前展开状态下需要保持可见的完整边界。
 function getVisibleBounds() {
-  const layerWidth = layerRef.value?.offsetWidth || 96;
-  const layerHeight = layerRef.value?.offsetHeight || 96;
+  const scale = floatingScale.value;
+  const layerWidth = (layerRef.value?.offsetWidth || 96) * scale;
+  const layerHeight = (layerRef.value?.offsetHeight || 96) * scale;
   const bounds = {
     left: 0,
     top: 0,
@@ -117,7 +126,7 @@ function getVisibleBounds() {
 
   const stackRect = actionStackRef.value.getBoundingClientRect();
   const stackStyle = window.getComputedStyle(actionStackRef.value);
-  const stackBottom = Number.parseFloat(stackStyle.bottom) || 0;
+  const stackBottom = (Number.parseFloat(stackStyle.bottom) || 0) * scale;
   const stackLeft = layerWidth / 2 - stackRect.width / 2;
   const stackTop = layerHeight - stackBottom - stackRect.height;
 
@@ -149,8 +158,11 @@ function notifyHitboxChanged() {
 // 同步位置边界、可交互区域，并通知 smallPageStore 胶囊中心位置。
 function syncPositionAndHitbox() {
   clampPosition();
-  // 主球体 90x90，位于 96x96 层的左下角，计算球体中心供普通小屏定位。
-  smallPageStore.updateBallPosition(position.x + 45, position.y + 51);
+  // 主球体 90x90，位于 96x96 层的左下角，按视觉尺寸计算中心供普通小屏定位。
+  smallPageStore.updateBallPosition(
+    position.x + 45 * floatingScale.value,
+    position.y + 51 * floatingScale.value,
+  );
   notifyHitboxChanged();
 }
 
@@ -215,6 +227,7 @@ function onResize() {
 }
 
 watch(expanded, () => nextTick(syncPositionAndHitbox));
+watch(floatingScale, () => nextTick(syncPositionAndHitbox));
 
 onMounted(() => {
   window.addEventListener("resize", onResize);
@@ -235,6 +248,7 @@ onBeforeUnmount(() => {
   width: 96px;
   height: 96px;
   pointer-events: auto;
+  transform-origin: top left;
   user-select: none;
 }
 

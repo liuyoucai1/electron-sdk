@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { useLayoutStore } from "./layout";
 
 // position 含义：
 //   'follow-ball' — 跟随胶囊，显示在胶囊左侧或右侧
@@ -116,6 +117,8 @@ export const useSmallPageStore = defineStore("smallPage", {
         return;
       }
 
+      const layoutStore = useLayoutStore();
+      const scale = layoutStore.appScale || 1;
       const prevPage = this.activePage;
       const page = {
         id: `small-page-${type}`,
@@ -144,8 +147,8 @@ export const useSmallPageStore = defineStore("smallPage", {
         if (preset.initialAnchor === "follow-ball") {
           const pos = computeFollowBallAnchor(
             this.ballPosition,
-            preset.width,
-            anchorHeight,
+            preset.width * scale,
+            anchorHeight * scale,
           );
           page.dragX = pos.left;
           page.dragY = pos.top;
@@ -154,11 +157,11 @@ export const useSmallPageStore = defineStore("smallPage", {
           page.dragX =
             anchor.left != null
               ? anchor.left
-              : window.innerWidth - preset.width - (anchor.right || 0);
+              : window.innerWidth - preset.width * scale - (anchor.right || 0);
           page.dragY =
             anchor.top != null
               ? anchor.top
-              : window.innerHeight - anchorHeight - (anchor.bottom || 0);
+              : window.innerHeight - anchorHeight * scale - (anchor.bottom || 0);
         }
 
         if (

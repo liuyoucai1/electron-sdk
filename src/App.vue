@@ -26,15 +26,18 @@ import ClassroomLauncher from './components/ClassroomLauncher.vue';
 import FloatingBall from './components/FloatingBall.vue';
 import WidgetHost from './components/widget/WidgetHost.vue';
 import { useFlowStore } from './stores/flow';
+import { useLayoutStore } from './stores/layout';
 import { useOverlayStore } from './stores/overlay';
 import { useSmallPageStore } from './stores/smallPage';
 import { useWidgetStore } from './stores/widget';
 
 const route = useRoute();
 const flowStore = useFlowStore();
+const layoutStore = useLayoutStore();
 const overlayStore = useOverlayStore();
 const smallPageStore = useSmallPageStore();
 const widgetStore = useWidgetStore();
+layoutStore.initializeScale();
 const classStarted = ref(false);
 const classSession = ref();
 const isFullscreenRoute = computed(() => Boolean(route.meta.fullscreen));

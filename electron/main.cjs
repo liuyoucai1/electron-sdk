@@ -115,6 +115,12 @@ function createOverlayWindow() {
 
   overlayWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
+  if (isDev) {
+    overlayWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+      console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+    });
+  }
+
   overlayWindow.on('closed', () => {
     overlayWindow = undefined;
     if (hitTestTimer) {

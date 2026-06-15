@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { useLayoutStore } from "./layout";
 
 const WIDGET_PRESETS = {
   "analysis-compact": {
@@ -41,9 +42,10 @@ export const useWidgetStore = defineStore("widget", {
         return;
       }
 
+      const layoutStore = useLayoutStore();
       const prev = this.activeWidget;
       const preservePosition = Boolean(options.preservePosition && prev);
-      const scale = preservePosition ? prev.scale : this.resolveScale(preset);
+      const scale = layoutStore.appScale || 1;
       const viewportWidth = window.innerWidth || 1920;
       const viewportHeight = window.innerHeight || 1080;
       const defaultX =
@@ -76,16 +78,6 @@ export const useWidgetStore = defineStore("widget", {
         props,
       };
       this.nextZIndex += 1;
-    },
-
-    // 根据视口尺寸得到统一缩放比例。
-    resolveScale(preset) {
-      const viewportWidth = window.innerWidth || 1920;
-      const viewportHeight = window.innerHeight || 1080;
-      const widthScale = (viewportWidth - 48) / preset.width;
-      const heightScale = (viewportHeight - 48) / preset.height;
-
-      return Math.max(0.82, Math.min(1, widthScale, heightScale));
     },
 
     // 更新缩屏位置。

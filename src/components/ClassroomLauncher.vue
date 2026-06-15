@@ -97,14 +97,12 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
+import { useLayoutStore } from "../stores/layout";
 
 const emit = defineEmits(["start"]);
-const DESIGN_WIDTH = 800;
-const DESIGN_HEIGHT = 852;
-const VIEWPORT_PADDING = 24;
 
-const scale = ref(1);
+const layoutStore = useLayoutStore();
 const selectedGradeId = ref("grade-2");
 const selectedClassId = ref("grade-2-class-1");
 const selectedSubjectId = ref("chemistry");
@@ -172,16 +170,8 @@ const selectedGrade = computed(
 const classOptions = computed(() => selectedGrade.value.classes);
 const subjectOptions = computed(() => selectedGrade.value.subjects);
 const panelStyle = computed(() => ({
-  transform: `scale(${scale.value})`,
+  transform: `scale(${layoutStore.appScale || 1})`,
 }));
-
-// 根据窗口尺寸按设计稿比例缩放启动面板。
-function updatePanelScale() {
-  const widthScale = (window.innerWidth - VIEWPORT_PADDING * 2) / DESIGN_WIDTH;
-  const heightScale =
-    (window.innerHeight - VIEWPORT_PADDING * 2) / DESIGN_HEIGHT;
-  scale.value = Math.min(1, widthScale, heightScale);
-}
 
 // 切换年级后同步重置班级和科目选项。
 function handleGradeChange() {
@@ -221,12 +211,9 @@ function closeLauncher() {
 }
 
 onMounted(() => {
-  updatePanelScale();
-  window.addEventListener("resize", updatePanelScale);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", updatePanelScale);
+  nextTick(() => {
+    document.dispatchEvent(new CustomEvent("overlay-hitboxes-changed"));
+  });
 });
 </script>
 
