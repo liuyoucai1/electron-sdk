@@ -1,4 +1,4 @@
-import { normalizeBase64Value } from "../views/ask/subjective/utils/resolveImageSrc.js";
+import { normalizeBase64Value } from "../shared/assets/resolveImageSrc.js";
 
 /**
  * 调用 Electron 主进程区域截图能力。

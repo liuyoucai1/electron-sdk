@@ -88,7 +88,7 @@ import { computed, nextTick, ref } from "vue";
 import {
   NUMERIC_ANSWER_MAX_LENGTH,
   sanitizeNumericAnswerInput,
-} from "../../../utils/numericAnswer.js";
+} from "../../../shared/utils/numericAnswer.js";
 
 const props = defineProps({
   // 缩屏为 true（70%），全屏为 false（40%）。

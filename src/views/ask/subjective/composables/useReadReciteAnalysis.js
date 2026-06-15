@@ -84,9 +84,11 @@ export function useReadReciteAnalysis(options = {}) {
 
   onMounted(() => {
     if (setupFullscreen) {
-      flowStore.currentStep = "read-recite-analysis";
-      flowStore.viewMode = "fullscreen";
-      flowStore.fullscreenRoute = "/ask/read-recite-analysis";
+      flowStore.setFullscreenContext({
+        currentStep: "read-recite-analysis",
+        viewMode: "fullscreen",
+        fullscreenRoute: "/ask/read-recite-analysis",
+      });
     }
 
     if (flowStore.readReciteAnalysisState) {

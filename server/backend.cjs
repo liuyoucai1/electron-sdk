@@ -88,7 +88,11 @@ function createBackend() {
       res.end(JSON.stringify({ ok: false, error: 'Not found' }));
     });
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      server.once('error', (error) => {
+        server = undefined;
+        reject(error);
+      });
       server.listen(port, '127.0.0.1', resolve);
     });
   }

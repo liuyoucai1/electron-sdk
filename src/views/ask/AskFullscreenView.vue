@@ -30,16 +30,9 @@
 </template>
 
 <script setup>
-import { nextTick } from 'vue';
-import { useRouter } from 'vue-router';
-import { useFlowStore } from '../../stores/flow';
-import { useSmallPageStore } from '../../stores/smallPage';
-import { useWidgetStore } from '../../stores/widget';
+import { useAskFullscreenControls } from './composables/useAskFullscreenControls';
 
-const router = useRouter();
-const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const { closeAskFlow, shrinkToCompact: shrinkCurrentToCompact } = useAskFullscreenControls();
 const resultItems = [
   { label: '已答人数', value: '42' },
   { label: '平均用时', value: '38 秒' },
@@ -48,22 +41,12 @@ const resultItems = [
 
 // 从全屏分析页缩放为 400 x 800 缩屏。
 async function shrinkToCompact() {
-  const target = flowStore.shrinkFullscreenToCompact();
-  smallPageStore.closePage();
-  widgetStore.openWidget(target.widgetType, target.props);
-  await router.replace('/');
-  await nextTick();
-  document.dispatchEvent(new CustomEvent('overlay-hitboxes-changed'));
+  await shrinkCurrentToCompact();
 }
 
 // 关闭全屏分析页并回到胶囊页面。
 async function closeFlow() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
-  await nextTick();
-  document.dispatchEvent(new CustomEvent('overlay-hitboxes-changed'));
+  await closeAskFlow();
 }
 </script>
 

@@ -1,23 +1,20 @@
-import AnalysisCompactWidget from '../../views/ask/widgets/AnalysisCompactWidget.vue';
-import MultiBatchCompactWidget from '../../views/ask/widgets/MultiBatchCompactWidget.vue';
-import AnswerProgressWidget from '../../views/ask/widgets/AnswerProgressWidget.vue';
-import AskEntryWidget from '../../views/ask/widgets/AskEntryWidget.vue';
-import MultiQuestionWidget from '../../views/ask/widgets/MultiQuestionWidget.vue';
-import ReadReciteWidget from '../../views/ask/subjective/widgets/ReadReciteWidget.vue';
-import ReadReciteAnalysisCompactWidget from '../../views/ask/subjective/widgets/ReadReciteAnalysisCompactWidget.vue';
-import VoiceQuestionMethodWidget from '../../views/ask/subjective/widgets/VoiceQuestionMethodWidget.vue';
-import VoiceQuestionInputWidget from '../../views/ask/subjective/widgets/VoiceQuestionInputWidget.vue';
-import SelectQuestionWidget from '../../views/ask/widgets/SelectQuestionWidget.vue';
+import { defineAsyncComponent } from 'vue';
 
 export const widgetRegistry = {
-  'analysis-compact': AnalysisCompactWidget,
-  'multi-batch-compact': MultiBatchCompactWidget,
-  'read-recite-analysis-compact': ReadReciteAnalysisCompactWidget,
-  'ask-entry': AskEntryWidget,
-  'answer-progress': AnswerProgressWidget,
-  'multi-question': MultiQuestionWidget,
-  'read-recite': ReadReciteWidget,
-  'select-question': SelectQuestionWidget,
-  'voice-question-method': VoiceQuestionMethodWidget,
-  'voice-question-input': VoiceQuestionInputWidget,
+  'analysis-compact': defineAsyncComponent(() => import('../../views/ask/widgets/AnalysisCompactWidget.vue')),
+  'multi-batch-compact': defineAsyncComponent(() => import('../../views/ask/widgets/MultiBatchCompactWidget.vue')),
+  'read-recite-analysis-compact': defineAsyncComponent(() =>
+    import('../../views/ask/subjective/widgets/ReadReciteAnalysisCompactWidget.vue')
+  ),
+  'ask-entry': defineAsyncComponent(() => import('../../views/ask/widgets/AskEntryWidget.vue')),
+  'answer-progress': defineAsyncComponent(() => import('../../views/ask/widgets/AnswerProgressWidget.vue')),
+  'multi-question': defineAsyncComponent(() => import('../../views/ask/widgets/MultiQuestionWidget.vue')),
+  'read-recite': defineAsyncComponent(() => import('../../views/ask/subjective/widgets/ReadReciteWidget.vue')),
+  'select-question': defineAsyncComponent(() => import('../../views/ask/widgets/SelectQuestionWidget.vue')),
+  'voice-question-method': defineAsyncComponent(() =>
+    import('../../views/ask/subjective/widgets/VoiceQuestionMethodWidget.vue')
+  ),
+  'voice-question-input': defineAsyncComponent(() =>
+    import('../../views/ask/subjective/widgets/VoiceQuestionInputWidget.vue')
+  ),
 };

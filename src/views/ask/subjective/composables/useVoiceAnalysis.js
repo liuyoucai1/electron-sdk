@@ -86,9 +86,11 @@ export function useVoiceAnalysis(options = {}) {
 
   onMounted(() => {
     if (setupFullscreen) {
-      flowStore.currentStep = "voice-analysis";
-      flowStore.viewMode = "fullscreen";
-      flowStore.fullscreenRoute = "/ask/voice-analysis";
+      flowStore.setFullscreenContext({
+        currentStep: "voice-analysis",
+        viewMode: "fullscreen",
+        fullscreenRoute: "/ask/voice-analysis",
+      });
     }
 
     if (flowStore.voiceAnalysisState) {

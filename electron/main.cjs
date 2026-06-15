@@ -11,9 +11,29 @@ let interactiveRegions = [];
 let fullscreenPage = false;
 let passthroughEnabled = false;
 let hitTestTimer;
+const MAX_INTERACTIVE_REGIONS = 80;
+
+function isTrustedSender(event) {
+  const frameUrl = event.senderFrame?.url || '';
+
+  if (isDev) {
+    return frameUrl.startsWith('http://127.0.0.1:5173/');
+  }
+
+  return frameUrl.startsWith('file://') && frameUrl.includes('/dist/index.html');
+}
+
+function rejectUntrustedSender(event, fallback = false) {
+  if (isTrustedSender(event)) {
+    return null;
+  }
+
+  console.warn(`Blocked IPC from untrusted sender: ${event.senderFrame?.url || 'unknown'}`);
+  return fallback;
+}
 
 function applyMousePassthrough(enabled) {
-  if (!overlayWindow || passthroughEnabled === enabled) {
+  if (!overlayWindow || overlayWindow.isDestroyed() || passthroughEnabled === enabled) {
     return;
   }
 
@@ -31,7 +51,7 @@ function pointInRegion(point, region) {
 }
 
 function updateMousePassthroughFromCursor() {
-  if (!overlayWindow || fullscreenPage) {
+  if (!overlayWindow || overlayWindow.isDestroyed() || fullscreenPage) {
     applyMousePassthrough(false);
     return;
   }
@@ -78,7 +98,28 @@ function createOverlayWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  overlayWindow.webContents.on('will-navigate', (event, url) => {
+    const allowedUrl = isDev
+      ? url.startsWith('http://127.0.0.1:5173/')
+      : url.startsWith('file://') && url.includes('/dist/index.html');
+
+    if (!allowedUrl) {
+      event.preventDefault();
+    }
+  });
+
+  overlayWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  overlayWindow.on('closed', () => {
+    overlayWindow = undefined;
+    if (hitTestTimer) {
+      clearInterval(hitTestTimer);
+      hitTestTimer = undefined;
     }
   });
 
@@ -93,11 +134,24 @@ function createOverlayWindow() {
 }
 
 function registerIpc() {
-  ipcMain.handle('backend:request', async (_event, request) => {
+  ipcMain.handle('backend:request', async (event, request) => {
+    const rejected = rejectUntrustedSender(event, {
+      ok: false,
+      error: 'untrusted_sender'
+    });
+    if (rejected) {
+      return rejected;
+    }
+
     return backend.handleRequest(request);
   });
 
-  ipcMain.handle('window:set-fullscreen-page', (_event, enabled) => {
+  ipcMain.handle('window:set-fullscreen-page', (event, enabled) => {
+    const rejected = rejectUntrustedSender(event);
+    if (rejected !== null) {
+      return rejected;
+    }
+
     if (!overlayWindow) {
       return false;
     }
@@ -109,7 +163,12 @@ function registerIpc() {
     return fullscreenPage;
   });
 
-  ipcMain.handle('window:set-mouse-passthrough', (_event, enabled) => {
+  ipcMain.handle('window:set-mouse-passthrough', (event, enabled) => {
+    const rejected = rejectUntrustedSender(event);
+    if (rejected !== null) {
+      return rejected;
+    }
+
     if (!overlayWindow) {
       return false;
     }
@@ -118,24 +177,47 @@ function registerIpc() {
     return Boolean(enabled);
   });
 
-  ipcMain.handle('window:set-interactive-regions', (_event, regions) => {
+  ipcMain.handle('window:set-interactive-regions', (event, regions) => {
+    const rejected = rejectUntrustedSender(event, 0);
+    if (rejected !== null) {
+      return rejected;
+    }
+
+    const bounds = overlayWindow?.getBounds() || { width: 1920, height: 1080 };
     interactiveRegions = Array.isArray(regions)
       ? regions
+          .slice(0, MAX_INTERACTIVE_REGIONS)
           .filter((region) => region && region.width > 0 && region.height > 0)
           .map((region) => ({
-            x: Number(region.x) || 0,
-            y: Number(region.y) || 0,
-            width: Number(region.width) || 0,
-            height: Number(region.height) || 0
+            x: Math.max(0, Math.min(Number(region.x) || 0, bounds.width)),
+            y: Math.max(0, Math.min(Number(region.y) || 0, bounds.height)),
+            width: Math.max(0, Math.min(Number(region.width) || 0, bounds.width)),
+            height: Math.max(0, Math.min(Number(region.height) || 0, bounds.height))
           }))
       : [];
     updateMousePassthroughFromCursor();
     return interactiveRegions.length;
   });
 
-  ipcMain.handle('app:get-version', () => app.getVersion());
+  ipcMain.handle('app:get-version', (event) => {
+    const rejected = rejectUntrustedSender(event, '');
+    if (rejected !== null) {
+      return rejected;
+    }
 
-  ipcMain.handle('screenshot:start-region', async () => {
+    return app.getVersion();
+  });
+
+  ipcMain.handle('screenshot:start-region', async (event) => {
+    const rejected = rejectUntrustedSender(event, {
+      ok: false,
+      cancelled: true,
+      error: 'untrusted_sender'
+    });
+    if (rejected) {
+      return rejected;
+    }
+
     if (!screenshotService) {
       return {
         ok: false,
@@ -147,7 +229,12 @@ function registerIpc() {
     return screenshotService.startRegionCapture();
   });
 
-  ipcMain.handle('app:quit', () => {
+  ipcMain.handle('app:quit', (event) => {
+    const rejected = rejectUntrustedSender(event);
+    if (rejected !== null) {
+      return rejected;
+    }
+
     app.quit();
   });
 }
@@ -193,6 +280,7 @@ app.on('will-quit', () => {
 app.on('before-quit', async () => {
   if (hitTestTimer) {
     clearInterval(hitTestTimer);
+    hitTestTimer = undefined;
   }
 
   if (backend) {

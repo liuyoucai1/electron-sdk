@@ -151,16 +151,19 @@ import { useRouter, useRoute } from "vue-router";
 import ObjectiveQuestionDistribution from "./components/ObjectiveQuestionDistribution.vue";
 import SetSingleAnswerDialog from "./components/SetSingleAnswerDialog.vue";
 import { useObjectiveQuestionAnalysis } from "./composables/useObjectiveQuestionAnalysis";
+import { useAskFullscreenControls } from "./composables/useAskFullscreenControls";
 import { useFlowStore } from "../../stores/flow";
-import { useSmallPageStore } from "../../stores/smallPage";
-import { useWidgetStore } from "../../stores/widget";
 
 const setAnswerDialogRef = ref(null);
 const router = useRouter();
 const route = useRoute();
 const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const {
+  closeAskFlow,
+  minimizeToTaskbar,
+  setFullscreenContext,
+  shrinkToCompact,
+} = useAskFullscreenControls();
 
 const {
   isMultiQuestion,
@@ -194,28 +197,28 @@ function handleOptionSelect(key) {
 
 // 缩屏：保存分析状态并打开缩屏 widget。
 async function handleShrink() {
-  flowStore.fullscreenRoute = "/ask/objective-detail";
+  setFullscreenContext({ fullscreenRoute: "/ask/objective-detail" });
   persistAnalysisState();
 
-  const target = flowStore.shrinkFullscreenToCompact();
-  smallPageStore.closePage();
-  widgetStore.openWidget(target.widgetType, {
-    ...target.props,
-    routeQuery: { ...querySource.value },
+  await shrinkToCompact({
+    props: {
+      routeQuery: { ...querySource.value },
+    },
   });
-  await router.replace("/");
 }
 
 // 返回：回到进入单题分析前的全屏页（如多题批次分析），不中断问业务流程。
 async function handleBack() {
   const returnTo = route.query.returnTo;
   if (typeof returnTo === "string" && returnTo) {
-    flowStore.viewMode = "fullscreen";
-    flowStore.fullscreenRoute = returnTo;
-    flowStore.currentStep =
-      returnTo === "/ask/multi-batch-analysis"
-        ? "batch-analysis"
-        : "single-analysis";
+    setFullscreenContext({
+      viewMode: "fullscreen",
+      fullscreenRoute: returnTo,
+      currentStep:
+        returnTo === "/ask/multi-batch-analysis"
+          ? "batch-analysis"
+          : "single-analysis",
+    });
 
     const query = {};
     if (route.query.entrySource) {
@@ -234,24 +237,16 @@ async function handleBack() {
 
 // 最小化：从全屏路由缩小到右侧 taskbar 触发按钮。
 async function handleMinimize() {
-  const target = flowStore.minimizeFullscreen("答题分析");
-  // 创建一个最小化的 widget 入口，供 taskbar 按钮展示和恢复使用。
-  widgetStore.openWidget(target.widgetType, {
-    sessionId: flowStore.sessionId,
-    questionId: flowStore.questionId,
-    step: flowStore.currentStep
+  await minimizeToTaskbar("答题分析", {
+    props: {
+      routeQuery: { ...querySource.value },
+    },
   });
-  widgetStore.minimizeWidget();
-  smallPageStore.closePage();
-  await router.replace("/");
 }
 
 // 关闭整条业务线。
 async function handleClose() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

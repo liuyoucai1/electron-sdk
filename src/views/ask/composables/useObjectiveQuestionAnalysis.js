@@ -8,7 +8,7 @@ import { useRoute } from "vue-router";
 import {
   getDistributionOptionStatus,
   hasDistributionAnswer,
-} from "../../../utils/answerDistribution.js";
+} from "../../../shared/utils/answerDistribution.js";
 import { useFlowStore } from "../../../stores/flow";
 import { useWidgetStore } from "../../../stores/widget";
 
@@ -169,8 +169,11 @@ export function useObjectiveQuestionAnalysis(context = {}) {
   function restoreAnalysisState() {
     const saved = flowStore.objectiveAnalysisState;
     const pageFromQuery = Number(querySource.value.questionIndex || 0) + 1;
+    const hasQuestionIndex = querySource.value.questionIndex != null;
 
-    currentPage.value = saved?.currentPage || pageFromQuery || 1;
+    currentPage.value = hasQuestionIndex
+      ? pageFromQuery || 1
+      : saved?.currentPage || pageFromQuery || 1;
     totalPages.value = isMultiQuestion.value
       ? Number(querySource.value.batchSize) || 4
       : 1;
@@ -182,13 +185,14 @@ export function useObjectiveQuestionAnalysis(context = {}) {
 
   onMounted(() => {
     if (querySource.value.compactParent === "multi-batch-compact") {
-      flowStore.fullscreenRoute = "/ask/multi-batch-analysis";
-      const batchQuery = flowStore.batchAnalysisState?.routeQuery;
-      if (batchQuery) {
-        flowStore.fullscreenQuery = { ...batchQuery };
-      }
+      flowStore.setFullscreenContext({
+        fullscreenRoute: "/ask/objective-detail",
+        fullscreenQuery: { ...querySource.value },
+      });
     } else {
-      flowStore.fullscreenRoute = "/ask/objective-detail";
+      flowStore.setFullscreenContext({
+        fullscreenRoute: "/ask/objective-detail",
+      });
     }
     restoreAnalysisState();
     persistAnalysisState();
@@ -280,7 +284,9 @@ export function useObjectiveQuestionAnalysis(context = {}) {
       currentPage: currentPage.value,
       routeQuery: { ...querySource.value },
     });
-    flowStore.fullscreenQuery = { ...querySource.value };
+    flowStore.setFullscreenContext({
+      fullscreenQuery: { ...querySource.value },
+    });
   }
 
   watch(

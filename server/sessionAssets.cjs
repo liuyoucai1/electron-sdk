@@ -1,14 +1,58 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 const STORE_DIR = path.join(os.tmpdir(), 'electron-skd-session-assets');
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const ASSET_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // 确保本地会话资源目录存在。
 function ensureStoreDir() {
   if (!fs.existsSync(STORE_DIR)) {
     fs.mkdirSync(STORE_DIR, { recursive: true });
   }
+}
+
+// 判断资源 ID 是否为主进程生成的安全 UUID。
+function isSafeAssetId(assetId) {
+  return typeof assetId === 'string' && ASSET_ID_PATTERN.test(assetId);
+}
+
+// 解析资源文件路径，并确保最终路径仍在本地资源目录内。
+function resolveAssetPath(assetId, extension) {
+  if (!isSafeAssetId(assetId)) {
+    return null;
+  }
+
+  const resolvedStoreDir = path.resolve(STORE_DIR);
+  const resolvedPath = path.resolve(STORE_DIR, `${assetId}.${extension}`);
+  const boundary = `${resolvedStoreDir}${path.sep}`;
+
+  if (!resolvedPath.startsWith(boundary)) {
+    return null;
+  }
+
+  return resolvedPath;
+}
+
+// 校验 base64 图片，避免超大 payload 阻塞主进程或耗尽磁盘。
+function decodeImageBase64(imageBase64) {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) {
+    return { ok: false, error: 'invalid_base64' };
+  }
+
+  const estimatedBytes = Math.floor((imageBase64.length * 3) / 4);
+  if (estimatedBytes > MAX_IMAGE_BYTES) {
+    return { ok: false, error: 'image_too_large' };
+  }
+
+  const buffer = Buffer.from(imageBase64, 'base64');
+  if (buffer.length > MAX_IMAGE_BYTES) {
+    return { ok: false, error: 'image_too_large' };
+  }
+
+  return { ok: true, buffer };
 }
 
 /**
@@ -23,11 +67,20 @@ function saveScreenshotAsset(payload = {}) {
 
   ensureStoreDir();
 
-  const assetId = `${payload.sessionId || 'session'}-${Date.now()}`;
-  const imagePath = path.join(STORE_DIR, `${assetId}.png`);
-  const metaPath = path.join(STORE_DIR, `${assetId}.json`);
+  const decoded = decodeImageBase64(imageBase64);
+  if (!decoded.ok) {
+    return decoded;
+  }
 
-  fs.writeFileSync(imagePath, Buffer.from(imageBase64, 'base64'));
+  const assetId = crypto.randomUUID();
+  const imagePath = resolveAssetPath(assetId, 'png');
+  const metaPath = resolveAssetPath(assetId, 'json');
+
+  if (!imagePath || !metaPath) {
+    return { ok: false, error: 'invalid_asset_path' };
+  }
+
+  fs.writeFileSync(imagePath, decoded.buffer);
   fs.writeFileSync(
     metaPath,
     JSON.stringify(
@@ -58,12 +111,16 @@ function saveScreenshotAsset(payload = {}) {
 
 // 同步完成后删除本地截屏文件与元数据。
 function releaseScreenshotAsset(assetId) {
-  if (!assetId) {
-    return { ok: false, error: 'missing_asset_id' };
+  if (!isSafeAssetId(assetId)) {
+    return { ok: false, error: 'invalid_asset_id' };
   }
 
-  const imagePath = path.join(STORE_DIR, `${assetId}.png`);
-  const metaPath = path.join(STORE_DIR, `${assetId}.json`);
+  const imagePath = resolveAssetPath(assetId, 'png');
+  const metaPath = resolveAssetPath(assetId, 'json');
+
+  if (!imagePath || !metaPath) {
+    return { ok: false, error: 'invalid_asset_path' };
+  }
 
   if (fs.existsSync(imagePath)) {
     fs.unlinkSync(imagePath);
@@ -77,6 +134,7 @@ function releaseScreenshotAsset(assetId) {
 }
 
 module.exports = {
+  STORE_DIR,
   saveScreenshotAsset,
   releaseScreenshotAsset,
 };

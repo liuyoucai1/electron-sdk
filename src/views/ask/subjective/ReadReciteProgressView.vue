@@ -100,17 +100,18 @@
 </template>
 
 <script setup>
-import { useRouter } from "vue-router";
 import AnswerProgressContentPanel from "./components/AnswerProgressContentPanel.vue";
+import { useAskFullscreenControls } from "../composables/useAskFullscreenControls";
 import { useAnswerProgress } from "./composables/useAnswerProgress.js";
 import { useFlowStore } from "../../../stores/flow";
-import { useSmallPageStore } from "../../../stores/smallPage";
-import { useWidgetStore } from "../../../stores/widget";
 
-const router = useRouter();
 const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const {
+  closeAskFlow,
+  minimizeToTaskbar,
+  navigateFlowTarget,
+  setFullscreenContext,
+} = useAskFullscreenControls();
 
 const {
   contentType,
@@ -143,45 +144,21 @@ async function handleEndAnswering() {
     return;
   }
 
-  if (target.viewMode === "idle" || target.route === "/") {
-    smallPageStore.closePage();
-    widgetStore.closeWidget();
-    await router.replace("/");
-    return;
-  }
-
-  if (!target.route) {
-    return;
-  }
-
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.push({
-    path: target.route,
-    query: target.query || flowStore.fullscreenQuery || {},
-  });
+  await navigateFlowTarget(target);
 }
 
 // 全屏最小化到右侧触发按钮。
 async function handleMinimize() {
-  flowStore.fullscreenRoute = "/ask/answer-progress";
-  flowStore.minimizeFullscreen(progressTitle.value);
-  widgetStore.openWidget("analysis-compact", {
-    sessionId: flowStore.sessionId,
-    step: flowStore.currentStep,
+  setFullscreenContext({ fullscreenRoute: "/ask/answer-progress" });
+  await minimizeToTaskbar(progressTitle.value, {
+    widgetType: "analysis-compact",
   });
-  widgetStore.minimizeWidget();
-  smallPageStore.closePage();
-  await router.replace("/");
 }
 
 // 关闭答题流程并回到首页。
 async function handleClose() {
   stopTimer();
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

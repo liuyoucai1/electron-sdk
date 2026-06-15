@@ -3,31 +3,12 @@ import {
   normalizeBase64Value,
   resolveImageSrc,
   revokeImageSrc,
-} from "./resolveImageSrc.js";
-
-// 将纯文本转为 HTML 段落，供左侧 v-html 渲染。
-function plainTextToHtml(text = "") {
-  const trimmed = String(text).trim();
-  if (!trimmed) {
-    return "<p></p>";
-  }
-
-  return trimmed
-    .split(/\n+/)
-    .map((line) => `<p>${line}</p>`)
-    .join("");
-}
-
-// 将段落列表转为 HTML，供左侧 v-html 渲染。
-function paragraphsToHtml(paragraphs = []) {
-  if (!paragraphs.length) {
-    return "<p></p>";
-  }
-
-  return paragraphs
-    .map((item) => `<p>${item.content || ""}</p>`)
-    .join("");
-}
+} from "../../../../shared/assets/resolveImageSrc.js";
+import {
+  paragraphsToSafeHtml,
+  plainTextToSafeHtml,
+  sanitizeTrustedHtml,
+} from "../../../../shared/html/sanitizeHtml.js";
 
 /**
  * 从背读小屏载荷构建通用答题进行中会话。
@@ -40,7 +21,9 @@ export function buildAnswerProgressFromReadRecite(payload = {}) {
     sourceType: "read-recite",
     contentType: "html",
     title: readRecite.title,
-    contentHtml: payload.contentHtml || paragraphsToHtml(readRecite.paragraphs),
+    contentHtml: payload.contentHtml
+      ? sanitizeTrustedHtml(payload.contentHtml)
+      : paragraphsToSafeHtml(readRecite.paragraphs),
     imageDataUrl: null,
     paragraphs: readRecite.paragraphs,
     reciteType: readRecite.reciteType,
@@ -70,7 +53,9 @@ export function buildAnswerProgressFromVoice(payload = {}) {
     title: payload.title || "",
     contentHtml: deferQuestionSetup
       ? ""
-      : payload.contentHtml || plainTextToHtml(questionText),
+      : payload.contentHtml
+      ? sanitizeTrustedHtml(payload.contentHtml)
+      : plainTextToSafeHtml(questionText),
     questionText,
     imageDataUrl: null,
     imageSrc: null,
@@ -140,7 +125,7 @@ export function normalizeAnswerProgressSession(session = {}) {
       contentHtml: session.deferQuestionSetup
         ? ""
         : session.contentHtml ||
-          plainTextToHtml(session.questionText || ""),
+          plainTextToSafeHtml(session.questionText || ""),
       allowHideContent: false,
     };
   }
@@ -151,7 +136,7 @@ export function normalizeAnswerProgressSession(session = {}) {
       ...session,
       contentHtml:
         session.contentHtml ||
-        paragraphsToHtml(session.paragraphs || []),
+        paragraphsToSafeHtml(session.paragraphs || []),
       allowHideContent: true,
     };
   }

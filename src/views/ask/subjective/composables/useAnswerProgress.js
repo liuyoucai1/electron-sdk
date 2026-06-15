@@ -133,9 +133,11 @@ export function useAnswerProgress() {
   }
 
   onMounted(() => {
-    flowStore.currentStep = "answer-progress";
-    flowStore.viewMode = "fullscreen";
-    flowStore.fullscreenRoute = "/ask/answer-progress";
+    flowStore.setFullscreenContext({
+      currentStep: "answer-progress",
+      viewMode: "fullscreen",
+      fullscreenRoute: "/ask/answer-progress",
+    });
 
     if (
       flowStore.answerProgressState ||

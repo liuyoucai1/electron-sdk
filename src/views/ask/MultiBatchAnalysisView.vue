@@ -228,7 +228,10 @@
 </template>
 
 <script setup>
-import * as echarts from "echarts";
+import * as echarts from "echarts/core";
+import { PieChart } from "echarts/charts";
+import { GraphicComponent, TooltipComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
 import SetBatchAnswersDialog from "./components/SetBatchAnswersDialog.vue";
 import {
   computed,
@@ -238,18 +241,22 @@ import {
   ref,
   watch,
 } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
+import { useAskFullscreenControls } from "./composables/useAskFullscreenControls";
 import { useMultiBatchAnalysis } from "./composables/useMultiBatchAnalysis";
 import { useFlowStore } from "../../stores/flow";
-import { useSmallPageStore } from "../../stores/smallPage";
-import { useWidgetStore } from "../../stores/widget";
 
 const setAnswersDialogRef = ref(null);
-const router = useRouter();
 const route = useRoute();
 const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const {
+  closeAskFlow,
+  minimizeToTaskbar,
+  setFullscreenContext,
+  shrinkToCompact,
+} = useAskFullscreenControls();
+
+echarts.use([PieChart, TooltipComponent, GraphicComponent, CanvasRenderer]);
 
 const {
   batchSize,
@@ -583,38 +590,27 @@ const sortedStudents = computed(() => {
 
 // 全屏缩为 400x800 缩屏 widget。
 async function handleShrink() {
-  flowStore.currentStep = "batch-analysis";
-  flowStore.fullscreenRoute = "/ask/multi-batch-analysis";
+  setFullscreenContext({
+    currentStep: "batch-analysis",
+    fullscreenRoute: "/ask/multi-batch-analysis",
+  });
   persistBatchAnalysisState();
 
-  const target = flowStore.shrinkFullscreenToCompact();
-  smallPageStore.closePage();
-  widgetStore.openWidget(target.widgetType, {
-    ...target.props,
+  await shrinkToCompact({
+    props: {
     routeQuery: { ...querySource.value },
+    },
   });
-  await router.replace("/");
 }
 
 // 全屏最小化到右侧激活按钮。
 async function handleMinimize() {
-  const target = flowStore.minimizeFullscreen("多题答题分析");
-  widgetStore.openWidget(target.widgetType, {
-    sessionId: flowStore.sessionId,
-    questionId: flowStore.questionId,
-    step: flowStore.currentStep,
-  });
-  widgetStore.minimizeWidget();
-  smallPageStore.closePage();
-  await router.replace("/");
+  await minimizeToTaskbar("多题答题分析");
 }
 
 // 关闭整条问业务流程，回到胶囊。
 async function handleClose() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

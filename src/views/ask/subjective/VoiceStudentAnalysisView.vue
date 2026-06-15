@@ -118,16 +118,10 @@
 </template>
 
 <script setup>
-import { useRouter } from "vue-router";
+import { useAskFullscreenControls } from "../composables/useAskFullscreenControls";
 import { useVoiceStudentAnalysis } from "./composables/useVoiceStudentAnalysis.js";
-import { useFlowStore } from "../../../stores/flow";
-import { useSmallPageStore } from "../../../stores/smallPage";
-import { useWidgetStore } from "../../../stores/widget";
 
-const router = useRouter();
-const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const { closeAskFlow, minimizeToTaskbar } = useAskFullscreenControls();
 
 const {
   currentIndex,
@@ -148,17 +142,16 @@ const {
 
 // 最小化学生详情面板。
 async function handleMinimize() {
-  flowStore.minimizeFullscreen("学生答题详情");
-  smallPageStore.closePage();
-  await router.replace("/");
+  await minimizeToTaskbar("学生答题详情", {
+    props: {
+    step: "voice-student-analysis",
+    },
+  });
 }
 
 // 关闭整条语音业务流程。
 async function handleClose() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

@@ -166,8 +166,10 @@ export function useVoiceStudentAnalysis() {
   // 返回语音分析汇总页。
   async function handleBack() {
     stopPlayback();
-    flowStore.currentStep = "voice-analysis";
-    flowStore.fullscreenRoute = "/ask/voice-analysis";
+    flowStore.setFullscreenContext({
+      currentStep: "voice-analysis",
+      fullscreenRoute: "/ask/voice-analysis",
+    });
     await router.push({
       path: "/ask/voice-analysis",
       query: flowStore.fullscreenQuery || {},
@@ -184,9 +186,11 @@ export function useVoiceStudentAnalysis() {
   );
 
   onMounted(() => {
-    flowStore.currentStep = "voice-student-analysis";
-    flowStore.viewMode = "fullscreen";
-    flowStore.fullscreenRoute = "/ask/voice-student-analysis";
+    flowStore.setFullscreenContext({
+      currentStep: "voice-student-analysis",
+      viewMode: "fullscreen",
+      fullscreenRoute: "/ask/voice-student-analysis",
+    });
     syncIndexFromRoute();
   });
 

@@ -7,7 +7,7 @@
 - 构建工具：Vite 6，配置文件为 `vite.config.mjs`。
 - 路由：Vue Router 4，路由入口在 `src/router/index.js`。
 - 状态管理：Pinia，业务 store 放在 `src/stores`。
-- UI 组件库：Element Plus。已在 `src/main.js` 全局注册，Element 默认样式覆盖集中放在 `src/style/element.scss`。
+- UI 组件库：Element Plus。通过 `src/plugins/elementPlus.js` 按需注册项目实际使用的组件和样式，Element 默认样式覆盖集中放在 `src/style/element.scss`。
 - 样式方案：Sass / SCSS。全局样式入口为 `src/style/index.scss`，组件自身样式优先写在组件内 `<style scoped lang="scss">`。
 - Electron 主进程：`electron/main.cjs`，预加载脚本为 `electron/preload.cjs`。
 - 本地后端：`server/backend.cjs`，通过 Electron IPC 或本地逻辑提供后端能力。
@@ -16,11 +16,13 @@
   - `npm run dev:vite`：只启动 Vite。
   - `npm run dev:electron`：只启动 Electron。
   - `npm run build`：构建前端产物。
+  - `npm run preview`：预览前端构建产物。
   - `npm run lint`：检查 Electron / backend 的 CommonJS 语法。
+  - `npm test`：运行项目已有 Node 测试。
 
 ## 目录规范
 
-- `src/main.js`：前端应用入口，只做应用创建、插件注册、全局样式引入。
+- `src/main.js`：前端应用入口，只做应用创建、Pinia / Router / 插件注册、全局样式引入。
 - `src/App.vue`：应用根组件，负责全局壳层、路由出口、全局悬浮层等根级逻辑。
 - `src/router/`：路由配置目录。新增页面路由时只在这里集中注册，避免组件内散落硬编码跳转。
 - `src/views/`：页面级 Vue 文件。只有能被路由直接访问的页面放在这里。
@@ -30,19 +32,28 @@
     - `subjective/widgets/`：主观题普通小屏承载页，如 `ReadReciteWidget.vue`。
     - `subjective/components/`：主观题小屏内的 Tab 面板等业务子组件。
 - `src/components/`：可复用组件目录。组件自己的结构、交互和局部样式尽量收敛在组件文件内。
+  - `src/components/distribution/AnswerDistributionList.vue`：作答分布列表公共组件，统一处理进度条、学生名单展开、状态样式和图例展示。
   - `src/components/widget/WidgetHost.vue`：小屏和缩屏的统一宿主，负责根据流程状态渲染普通小屏、缩屏或最小化按钮。
   - `src/components/widget/WidgetShell.vue`：只服务缩屏形态，负责拖动、缩放、关闭、最小化、全屏等窗口外壳能力。
-  - `src/components/widget/widgetRegistry.js`：普通小屏和缩屏内容组件注册表。
+  - `src/components/widget/widgetRegistry.js`：普通小屏和缩屏内容组件注册表。注册表使用异步组件，避免应用启动时一次性加载所有业务 widget。
+- `src/plugins/`：应用启动级插件注册目录。新增全局插件或按需组件注册时放这里，`src/main.js` 只负责安装。
+  - `src/plugins/elementPlus.js`：Element Plus 按需注册入口，只注册项目实际使用到的组件和对应样式。
+- `src/shared/`：跨业务、跨页面、无业务流程依赖的公共能力目录。这里的代码不能直接依赖 `views`、`stores` 或路由。
+  - `src/shared/assets/`：通用资源处理，如图片 base64、Blob URL、资源释放。
+  - `src/shared/html/`：通用 HTML 文本转义和净化。
+  - `src/shared/utils/`：纯函数工具，如答案分布判断、数字答案清洗。
 - `src/style/`：全局 SCSS 目录。
   - `index.scss`：全局样式统一入口，只负责转发/引入其他样式文件。
   - `common.scss`：系统级通用样式、CSS 变量、设计 token、基础 reset。
   - `element.scss`：Element Plus 默认样式覆盖，只放和 Element Plus 相关的变量或选择器。
 - `src/stores/`：Pinia store。跨组件共享状态放这里，组件私有状态留在组件内。
-  - `flow.js`：业务流程真相，维护 `activeFlow`、`currentStep`、`viewMode`、下一步和路由目标。
+  - `flow.js`：业务流程真相，维护 `activeFlow`、`currentStep`、`viewMode`、下一步和路由目标。问业务动作通过 `ASK_ACTION_HANDLERS` 分发表进入小型 action 方法，不再把新分支塞进一个巨大的 `handleAskWidgetAction()`。
   - `smallPage.js`：普通小屏页面状态，只维护当前普通小屏的类型、尺寸和 props。
   - `widget.js`：缩屏窗口状态，只维护缩屏的位置、尺寸、缩放、zIndex 和最小化状态。
-- `src/api/`：前端访问 Electron IPC、本地服务或后端能力的封装。
+- `src/api/`：前端访问 Electron IPC、本地服务或后端能力的封装。可以依赖 `src/shared`，不要依赖 `src/views` 内部工具。
 - `src/mock/`：mock 数据和临时演示数据。正式业务逻辑接入后应逐步清理无用 mock。
+- `src/utils/`：旧公共工具目录已迁移到 `src/shared`，不要再新增公共工具到这里。
+- `tests/`：Node 测试目录。公共工具、服务端安全边界、流程 store 关键链路等行为应补测试。
 - `electron/`：Electron 主进程和 preload 相关代码。
 - `server/`：本地 Node 后端代码。
 - `dist/`：构建产物，不手写修改。
@@ -50,8 +61,18 @@
   - `AGENTS.md`：给协作智能体和开发者看的项目约定。
   - `EZquizUI规范.md`：EzQuiz UI 设计规范源文档。
   - `README.md`：项目启动、构建和背景说明。
+  - `docs/项目巡检问题分析.md`：本轮项目扫描、问题分级和优化记录。
+  - `docs/目录结构整理说明.md`：当前目录边界、公共抽离和后续目录建议。
+  - `docs/vue/`、`docs/images/`：历史 UI 参考稿和截图资源，作为界面还原参考，不直接作为运行时代码依赖。
 
-新增文件时遵循这些边界：页面进 `views`，复用 UI 进 `components`，全局样式进 `src/style`，组件样式进组件内部，Element Plus 覆盖只进 `element.scss`。
+新增文件时遵循这些边界：页面进 `views`，复用 UI 进 `components`，跨业务纯工具进 `src/shared`，应用启动级插件进 `src/plugins`，全局样式进 `src/style`，组件样式进组件内部，Element Plus 覆盖只进 `element.scss`，不要再往 `src/utils` 增加公共工具。
+
+## 构建与依赖约定
+
+- 路由页面和 widget 内容组件优先懒加载，避免首屏一次性加载所有业务页面。
+- `vite.config.mjs` 已按 `vendor-vue`、`vendor-element`、`vendor-echarts`、`vendor` 手动分包。新增大型依赖时先评估是否需要补 `manualChunks`，避免主入口 chunk 膨胀。
+- Element Plus 新增组件时，在 `src/plugins/elementPlus.js` 里补组件和对应样式，不要在 `src/main.js` 中恢复全量 `use(ElementPlus)`。
+- ECharts 按需从 `echarts/core` 注册图表、组件和 renderer，不要在业务页面全量引入 `echarts`。
 
 ## 当前流程架构
 
@@ -61,7 +82,7 @@
 
 - `idle`：无业务流程，显示胶囊 / 悬浮球。
 - `small-page`：普通小屏页面。普通小屏只是业务承载页，不默认拥有缩放、最小化、全屏、拖动等窗口能力；按钮由页面组件自己控制。
-- `fullscreen`：全屏路由页面。全屏页走 Vue Router，当前问业务路由为 `/ask/fullscreen`。
+- `fullscreen`：全屏路由页面。全屏页走 Vue Router，问业务有多个全屏路由，如 `/ask/objective-detail`、`/ask/multi-batch-analysis`、`/ask/answer-progress`、`/ask/read-recite-analysis`、`/ask/voice-analysis` 等；`/ask/fullscreen` 只是保留的问业务全屏承载页之一。
 - `compact`：缩屏组件。缩屏才套 `WidgetShell`，拥有全屏、最小化、关闭、拖动、缩放等窗口外壳能力。
 - `minimized`：缩屏最小化状态。只显示右侧最小化激活按钮，不显示胶囊 / 悬浮球。
 
@@ -85,10 +106,12 @@
 点击结束答题
   -> action = 'finish-answering'
   -> viewMode = 'fullscreen'
-  -> router.push('/ask/fullscreen')
-  -> 显示 AskFullscreenView
+  -> flowStore 根据 answerProgressEntry 决定目标
+  -> 单题入口 router.push('/ask/objective-detail')
+  -> 多题入口 router.push('/ask/multi-batch-analysis')
 
 全屏页点击缩放
+  -> useAskFullscreenControls().shrinkToCompact()
   -> flowStore.shrinkFullscreenToCompact()
   -> viewMode = 'compact'
   -> widgetStore.openWidget('analysis-compact')
@@ -97,13 +120,14 @@
 
 缩屏点击全屏
   -> flowStore.expandWidgetToFullscreen()
-  -> router.push('/ask/fullscreen')
+  -> router.push(flowStore.fullscreenRoute)
 
 缩屏点击最小化
   -> viewMode = 'minimized'
   -> 只显示右侧最小化按钮
 
 缩屏或全屏点击关闭
+  -> useAskFullscreenControls().closeAskFlow()
   -> flowStore.resetFlow()
   -> smallPageStore.closePage()
   -> widgetStore.closeWidget()
@@ -119,14 +143,23 @@
 - `WidgetHost` 是统一宿主，但普通小屏和缩屏的渲染方式不同：普通小屏直接渲染组件；缩屏通过 `WidgetShell` 渲染。
 - `WidgetShell` 只用于 `compact` 缩屏，不能拿来包普通小屏页面。
 - 全屏页面自己的按钮由全屏页面组件控制，不由 `WidgetShell` 控制。
+- 全屏页面的缩屏、最小化、关闭、消费流程 target 等通用窗口控制优先使用 `src/views/ask/composables/useAskFullscreenControls.js`，避免各页面重复操作 `smallPageStore`、`widgetStore` 和 router。
 - 胶囊 / 悬浮球只在 `viewMode === 'idle'` 时显示；`small-page`、`fullscreen`、`compact`、`minimized` 都不显示胶囊。
+
+### `flowStore` 动作结构
+
+- `handleAskWidgetAction(payload)` 只做动作分发，不继续堆业务分支。
+- 新增问业务动作时，先在 `ASK_ACTION_HANDLERS` 注册 `payload.action` 到具体 store action。
+- 具体流程写成小型 action 方法，例如 `openAnswerProgress()`、`finishAnswering()`、`startVoiceQuestion()`、`finishAnswerProgress()`。
+- 路由和步骤映射优先补顶部常量表，例如 `ANSWER_PROGRESS_ENTRY_TARGETS`、`FINISH_ANSWERING_TARGETS`、`FULLSCREEN_ROUTE_STEPS`、`READ_RECITE_COMPACT_ROUTES`。
+- 返回普通小屏目标优先使用 `createSmallPageTarget()` / `openSmallPage()`；返回全屏目标优先使用 `openFullscreen()`。
 
 ### 新增流程时的落点
 
 - 新增普通小屏：在 `src/views/<业务>/widgets/` 新建组件，在对应 store 的普通小屏预设中补尺寸，并注册到 `widgetRegistry.js`。
 - 新增缩屏：在 `src/views/<业务>/widgets/` 新建内容组件，在 `widgetStore` 里补缩屏预设，并注册到 `widgetRegistry.js`。缩屏尺寸和位置只在 `widgetStore` 管。
 - 新增全屏页面：在 `src/views/<业务>/` 新建页面 Vue 文件，在 `src/router/index.js` 注册路由，并设置 `meta.fullscreen: true`。
-- 新增流程动作：优先在 `flowStore` 中增加 action 或扩展 `handleAskWidgetAction()`，组件只通过 `emit('flow-action', payload)` 触发。
+- 新增流程动作：优先在 `flowStore` 中通过 `ASK_ACTION_HANDLERS` + 小型 action 方法注册，组件只通过 `emit('flow-action', payload)` 或调用已有 composable 提交业务意图。
 
 ## EzQuiz UI 规范
 

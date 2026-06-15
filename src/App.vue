@@ -37,7 +37,11 @@ const classStarted = ref(false);
 const classSession = ref();
 const isFullscreenRoute = computed(() => Boolean(route.meta.fullscreen));
 const showFloatingBall = computed(
-  () => !isFullscreenRoute.value && !flowStore.shouldHideFloatingBall && !smallPageStore.shouldHideFloatingBall
+  () =>
+    flowStore.viewMode === 'idle' &&
+    !isFullscreenRoute.value &&
+    !flowStore.shouldHideFloatingBall &&
+    !smallPageStore.shouldHideFloatingBall
 );
 let updateTimer;
 let updateFrame;
@@ -152,7 +156,7 @@ watch(classStarted, () => nextTick(scheduleInteractiveRegionUpdate));
 onMounted(() => {
   window.addEventListener('resize', scheduleInteractiveRegionUpdate);
   document.addEventListener('overlay-hitboxes-changed', scheduleInteractiveRegionUpdate);
-  updateTimer = window.setInterval(scheduleInteractiveRegionUpdate, 120);
+  updateTimer = window.setInterval(scheduleInteractiveRegionUpdate, 500);
   nextTick(scheduleInteractiveRegionUpdate);
 });
 

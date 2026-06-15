@@ -126,17 +126,11 @@
 </template>
 
 <script setup>
-import { useRouter } from "vue-router";
 import OriginalTextComparison from "./components/OriginalTextComparison.vue";
+import { useAskFullscreenControls } from "../composables/useAskFullscreenControls";
 import { useReadReciteStudentAnalysis } from "./composables/useReadReciteStudentAnalysis.js";
-import { useFlowStore } from "../../../stores/flow";
-import { useSmallPageStore } from "../../../stores/smallPage";
-import { useWidgetStore } from "../../../stores/widget";
 
-const router = useRouter();
-const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const { closeAskFlow, minimizeToTaskbar } = useAskFullscreenControls();
 
 const {
   pageTitle,
@@ -158,17 +152,16 @@ const {
 
 // 最小化学生详情面板。
 async function handleMinimize() {
-  flowStore.minimizeFullscreen(`${pageTitle.value} · 学生详情`);
-  smallPageStore.closePage();
-  await router.replace("/");
+  await minimizeToTaskbar(`${pageTitle.value} · 学生详情`, {
+    props: {
+    step: "read-recite-student-analysis",
+    },
+  });
 }
 
 // 关闭背读流程。
 async function handleClose() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

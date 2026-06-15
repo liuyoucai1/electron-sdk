@@ -132,15 +132,18 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import ReadReciteScoreDistribution from "./components/ReadReciteScoreDistribution.vue";
+import { useAskFullscreenControls } from "../composables/useAskFullscreenControls";
 import { useReadReciteAnalysis } from "./composables/useReadReciteAnalysis.js";
 import { useFlowStore } from "../../../stores/flow";
-import { useSmallPageStore } from "../../../stores/smallPage";
-import { useWidgetStore } from "../../../stores/widget";
 
 const router = useRouter();
 const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const {
+  closeAskFlow,
+  minimizeToTaskbar,
+  setFullscreenContext,
+  shrinkToCompact,
+} = useAskFullscreenControls();
 
 const {
   analysis,
@@ -180,8 +183,10 @@ async function handleOpenStudent(student) {
 
   flowStore.saveReadReciteAnalysisState(analysis.value);
   flowStore.saveReadReciteStudentIndex(answeredIndex);
-  flowStore.currentStep = "read-recite-student-analysis";
-  flowStore.fullscreenRoute = "/ask/read-recite-student-analysis";
+  setFullscreenContext({
+    currentStep: "read-recite-student-analysis",
+    fullscreenRoute: "/ask/read-recite-student-analysis",
+  });
 
   await router.push({
     path: "/ask/read-recite-student-analysis",
@@ -195,41 +200,38 @@ async function handleOpenStudent(student) {
 // 缩屏：打开背读判分专用缩屏，不复用客观题 analysis-compact。
 async function handleShrink() {
   flowStore.saveReadReciteAnalysisState(analysis.value);
-  flowStore.currentStep = "read-recite-analysis";
-  flowStore.fullscreenRoute = "/ask/read-recite-analysis";
-  flowStore.viewMode = "compact";
-
-  smallPageStore.closePage();
-  widgetStore.openWidget("read-recite-analysis-compact", {
-    sessionId: flowStore.sessionId,
-    step: "read-recite-analysis",
-    reciteType: analysis.value.reciteType,
+  setFullscreenContext({
+    currentStep: "read-recite-analysis",
+    fullscreenRoute: "/ask/read-recite-analysis",
   });
-  await router.replace("/");
+  await shrinkToCompact({
+    widgetType: "read-recite-analysis-compact",
+    props: {
+      step: "read-recite-analysis",
+      reciteType: analysis.value.reciteType,
+    },
+  });
 }
 
 // 全屏最小化：恢复时使用背读判分专用缩屏。
 async function handleMinimize() {
-  flowStore.currentStep = "read-recite-analysis";
-  flowStore.fullscreenRoute = "/ask/read-recite-analysis";
-
-  flowStore.minimizeFullscreen(pageTitle.value);
-  widgetStore.openWidget("read-recite-analysis-compact", {
-    sessionId: flowStore.sessionId,
-    step: "read-recite-analysis",
-    reciteType: analysis.value.reciteType,
+  setFullscreenContext({
+    currentStep: "read-recite-analysis",
+    fullscreenRoute: "/ask/read-recite-analysis",
   });
-  widgetStore.minimizeWidget();
-  smallPageStore.closePage();
-  await router.replace("/");
+
+  await minimizeToTaskbar(pageTitle.value, {
+    widgetType: "read-recite-analysis-compact",
+    props: {
+      step: "read-recite-analysis",
+      reciteType: analysis.value.reciteType,
+    },
+  });
 }
 
 // 关闭背读流程。
 async function handleClose() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

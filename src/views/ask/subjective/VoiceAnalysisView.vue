@@ -249,16 +249,20 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { startRegionScreenshot } from "../../../api/screenshot.js";
 import ReadReciteScoreDistribution from "./components/ReadReciteScoreDistribution.vue";
+import { useAskFullscreenControls } from "../composables/useAskFullscreenControls";
 import { useVoiceAnalysis } from "./composables/useVoiceAnalysis.js";
 import { mapVoiceAnalysisToReadReciteState } from "./utils/buildVoiceAnalysis.js";
 import { useFlowStore } from "../../../stores/flow";
-import { useSmallPageStore } from "../../../stores/smallPage";
-import { useWidgetStore } from "../../../stores/widget";
 
 const router = useRouter();
 const flowStore = useFlowStore();
-const smallPageStore = useSmallPageStore();
-const widgetStore = useWidgetStore();
+const {
+  closeAskFlow,
+  minimizeToTaskbar,
+  navigateFlowTarget,
+  setFullscreenContext,
+  shrinkToCompact,
+} = useAskFullscreenControls();
 
 const {
   analysis,
@@ -286,15 +290,12 @@ const showGradingSettings = ref(false);
 const isCapturing = ref(false);
 
 // 在分析页打开语音录入小屏补设题目。
-function handleSetQuestionVoice() {
+async function handleSetQuestionVoice() {
   const target = flowStore.handleAskWidgetAction({
     action: "open-voice-question-from-analysis",
   });
 
-  if (target?.displayMode === "small-page" && target.pageType) {
-    widgetStore.closeWidget();
-    smallPageStore.openPage(target.pageType, target.props);
-  }
+  await navigateFlowTarget(target);
 }
 
 // 在分析页通过截屏补设题目。
@@ -333,8 +334,10 @@ async function handleSetQuestionScreenshot() {
 async function handleOpenStudent(index) {
   flowStore.saveVoiceAnalysisState(analysis.value);
   flowStore.saveVoiceStudentIndex(index);
-  flowStore.currentStep = "voice-student-analysis";
-  flowStore.fullscreenRoute = "/ask/voice-student-analysis";
+  setFullscreenContext({
+    currentStep: "voice-student-analysis",
+    fullscreenRoute: "/ask/voice-student-analysis",
+  });
 
   await router.push({
     path: "/ask/voice-student-analysis",
@@ -358,16 +361,17 @@ async function handleShrink() {
   flowStore.saveReadReciteAnalysisState(
     mapVoiceAnalysisToReadReciteState(analysis.value),
   );
-  flowStore.currentStep = "voice-analysis";
-  flowStore.fullscreenRoute = "/ask/voice-analysis";
-  flowStore.viewMode = "compact";
-
-  smallPageStore.closePage();
-  widgetStore.openWidget("read-recite-analysis-compact", {
-    sessionId: flowStore.sessionId,
-    step: "voice-analysis",
+  setFullscreenContext({
+    currentStep: "voice-analysis",
+    fullscreenRoute: "/ask/voice-analysis",
   });
-  await router.replace("/");
+
+  await shrinkToCompact({
+    widgetType: "read-recite-analysis-compact",
+    props: {
+      step: "voice-analysis",
+    },
+  });
 }
 
 // 最小化：恢复时使用背读判分专用缩屏。
@@ -376,25 +380,22 @@ async function handleMinimize() {
   flowStore.saveReadReciteAnalysisState(
     mapVoiceAnalysisToReadReciteState(analysis.value),
   );
-  flowStore.currentStep = "voice-analysis";
-  flowStore.fullscreenRoute = "/ask/voice-analysis";
-
-  flowStore.minimizeFullscreen(pageTitle.value);
-  widgetStore.openWidget("read-recite-analysis-compact", {
-    sessionId: flowStore.sessionId,
-    step: "voice-analysis",
+  setFullscreenContext({
+    currentStep: "voice-analysis",
+    fullscreenRoute: "/ask/voice-analysis",
   });
-  widgetStore.minimizeWidget();
-  smallPageStore.closePage();
-  await router.replace("/");
+
+  await minimizeToTaskbar(pageTitle.value, {
+    widgetType: "read-recite-analysis-compact",
+    props: {
+      step: "voice-analysis",
+    },
+  });
 }
 
 // 关闭语音分析流程。
 async function handleClose() {
-  const target = flowStore.resetFlow();
-  smallPageStore.closePage();
-  widgetStore.closeWidget();
-  await router.replace(target.route);
+  await closeAskFlow();
 }
 </script>
 

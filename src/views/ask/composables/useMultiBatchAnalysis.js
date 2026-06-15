@@ -5,7 +5,7 @@
  */
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getDistributionOptionStatus } from "../../../utils/answerDistribution.js";
+import { getDistributionOptionStatus } from "../../../shared/utils/answerDistribution.js";
 import { useFlowStore } from "../../../stores/flow";
 import { useWidgetStore } from "../../../stores/widget";
 
@@ -127,12 +127,16 @@ export function useMultiBatchAnalysis(context = {}) {
       batchCorrectAnswers: [...batchCorrectAnswers.value],
       routeQuery: { ...querySource.value },
     });
-    flowStore.fullscreenQuery = { ...querySource.value };
+    flowStore.setFullscreenContext({
+      fullscreenQuery: { ...querySource.value },
+    });
   }
 
   onMounted(() => {
-    flowStore.currentStep = "batch-analysis";
-    flowStore.fullscreenRoute = "/ask/multi-batch-analysis";
+    flowStore.setFullscreenContext({
+      currentStep: "batch-analysis",
+      fullscreenRoute: "/ask/multi-batch-analysis",
+    });
     restoreBatchAnalysisState();
     persistBatchAnalysisState();
   });
@@ -249,10 +253,15 @@ export function useMultiBatchAnalysis(context = {}) {
           : null,
       });
 
-      flowStore.currentStep = "single-analysis";
       flowStore.currentQuestionIndex = question.id - 1;
-      flowStore.fullscreenRoute = "/ask/multi-batch-analysis";
-      flowStore.fullscreenQuery = { ...querySource.value };
+      flowStore.setFullscreenContext({
+        currentStep: "single-analysis",
+        fullscreenRoute: "/ask/objective-detail",
+        fullscreenQuery: {
+          ...query,
+          compactParent: "multi-batch-compact",
+        },
+      });
 
       flowStore.saveObjectiveAnalysisState({
         currentPage: question.id,
@@ -282,9 +291,11 @@ export function useMultiBatchAnalysis(context = {}) {
       return;
     }
 
-    flowStore.currentStep = "single-analysis";
     flowStore.currentQuestionIndex = question.id - 1;
-    flowStore.fullscreenRoute = "/ask/objective-detail";
+    flowStore.setFullscreenContext({
+      currentStep: "single-analysis",
+      fullscreenRoute: "/ask/objective-detail",
+    });
 
     await router.push({
       path: "/ask/objective-detail",

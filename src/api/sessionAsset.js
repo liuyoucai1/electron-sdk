@@ -1,5 +1,5 @@
 import { requestBackend } from "./ipc.js";
-import { revokeImageSrc } from "../views/ask/subjective/utils/resolveImageSrc.js";
+import { revokeImageSrc } from "../shared/assets/resolveImageSrc.js";
 
 let activeImageBlobUrl = null;
 

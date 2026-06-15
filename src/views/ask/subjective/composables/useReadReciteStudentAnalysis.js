@@ -156,8 +156,10 @@ export function useReadReciteStudentAnalysis() {
   // 返回背读分析汇总页。
   async function handleBack() {
     stopPlayback();
-    flowStore.currentStep = "read-recite-analysis";
-    flowStore.fullscreenRoute = "/ask/read-recite-analysis";
+    flowStore.setFullscreenContext({
+      currentStep: "read-recite-analysis",
+      fullscreenRoute: "/ask/read-recite-analysis",
+    });
     await router.push({
       path: "/ask/read-recite-analysis",
       query: flowStore.fullscreenQuery || {},
@@ -174,9 +176,11 @@ export function useReadReciteStudentAnalysis() {
   );
 
   onMounted(() => {
-    flowStore.currentStep = "read-recite-student-analysis";
-    flowStore.viewMode = "fullscreen";
-    flowStore.fullscreenRoute = "/ask/read-recite-student-analysis";
+    flowStore.setFullscreenContext({
+      currentStep: "read-recite-student-analysis",
+      viewMode: "fullscreen",
+      fullscreenRoute: "/ask/read-recite-student-analysis",
+    });
     syncIndexFromRoute();
   });
 

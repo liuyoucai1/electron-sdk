@@ -1,13 +1,14 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
-import AskFullscreenView from '../views/ask/AskFullscreenView.vue';
-import ObjectiveQuestionDetail from '../views/ask/ObjectiveQuestionDetail.vue';
-import MultiBatchAnalysisView from '../views/ask/MultiBatchAnalysisView.vue';
-import ReadReciteProgressView from '../views/ask/subjective/ReadReciteProgressView.vue';
-import ReadReciteAnalysisView from '../views/ask/subjective/ReadReciteAnalysisView.vue';
-import ReadReciteStudentAnalysisView from '../views/ask/subjective/ReadReciteStudentAnalysisView.vue';
-import VoiceAnalysisView from '../views/ask/subjective/VoiceAnalysisView.vue';
-import VoiceStudentAnalysisView from '../views/ask/subjective/VoiceStudentAnalysisView.vue';
+
+const HomeView = () => import('../views/HomeView.vue');
+const AskFullscreenView = () => import('../views/ask/AskFullscreenView.vue');
+const ObjectiveQuestionDetail = () => import('../views/ask/ObjectiveQuestionDetail.vue');
+const MultiBatchAnalysisView = () => import('../views/ask/MultiBatchAnalysisView.vue');
+const ReadReciteProgressView = () => import('../views/ask/subjective/ReadReciteProgressView.vue');
+const ReadReciteAnalysisView = () => import('../views/ask/subjective/ReadReciteAnalysisView.vue');
+const ReadReciteStudentAnalysisView = () => import('../views/ask/subjective/ReadReciteStudentAnalysisView.vue');
+const VoiceAnalysisView = () => import('../views/ask/subjective/VoiceAnalysisView.vue');
+const VoiceStudentAnalysisView = () => import('../views/ask/subjective/VoiceStudentAnalysisView.vue');
 
 const router = createRouter({
   history: createWebHashHistory(),
