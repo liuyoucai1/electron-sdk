@@ -28,6 +28,9 @@
 - `src/views/`：页面级 Vue 文件。只有能被路由直接访问的页面放在这里。
   - `src/views/ask/AskFullscreenView.vue`：问业务全屏承载页，负责全屏态自己的按钮和页面内交互。
   - `src/views/ask/widgets/`：问业务普通小屏和缩屏内容组件（客观题为主）。组件只负责内容和发出业务事件，窗口外壳能力不要写在这里。
+    - `SelectQuestionWidget.vue`：选题提问普通小屏，负责自编 / 共享 / 教材 / 题库 Tab、选题勾选、主客观混选确认和发出流程事件。
+  - `src/views/ask/components/selectQuestion/`：选题提问小屏内部业务组件，如左侧来源面板、中心题目列表、混选确认弹框等。
+  - `src/views/ask/utils/buildAnswerProgressBatch.js`：选题提问进入多题答题进行中时的业务会话组装工具，属于问业务内部工具，不放 `src/shared`。
   - `src/views/ask/subjective/`：主观题（背诵 / 朗读等）小屏与内容组件。
     - `subjective/widgets/`：主观题普通小屏承载页，如 `ReadReciteWidget.vue`。
     - `subjective/components/`：主观题小屏内的 Tab 面板等业务子组件。
@@ -41,7 +44,7 @@
 - `src/shared/`：跨业务、跨页面、无业务流程依赖的公共能力目录。这里的代码不能直接依赖 `views`、`stores` 或路由。
   - `src/shared/assets/`：通用资源处理，如图片 base64、Blob URL、资源释放。
   - `src/shared/html/`：通用 HTML 文本转义和净化。
-  - `src/shared/utils/`：纯函数工具，如答案分布判断、数字答案清洗。
+  - `src/shared/utils/`：纯函数工具，如答案分布判断、数字答案清洗、选题题型判断与 id 查找。
 - `src/style/`：全局 SCSS 目录。
   - `index.scss`：全局样式统一入口，只负责转发/引入其他样式文件。
   - `common.scss`：系统级通用样式、CSS 变量、设计 token、基础 reset。
@@ -51,7 +54,8 @@
   - `smallPage.js`：普通小屏页面状态，只维护当前普通小屏的类型、尺寸和 props。
   - `widget.js`：缩屏窗口状态，只维护缩屏的位置、尺寸、缩放、zIndex 和最小化状态。
 - `src/api/`：前端访问 Electron IPC、本地服务或后端能力的封装。可以依赖 `src/shared`，不要依赖 `src/views` 内部工具。
-- `src/mock/`：mock 数据和临时演示数据。正式业务逻辑接入后应逐步清理无用 mock。
+- `src/mock/`：mock 数据和临时演示数据。页面未画完前可以继续服务 UI 调试；正式业务逻辑接入后应逐步清理无用 mock。
+  - `src/mock/selectQuestion.js`：选题提问自编 / 共享 / 教材 / 题库 Tab 的临时题目数据，后续接真实题库服务时替换数据来源。
 - `src/utils/`：旧公共工具目录已迁移到 `src/shared`，不要再新增公共工具到这里。
 - `tests/`：Node 测试目录。公共工具、服务端安全边界、流程 store 关键链路等行为应补测试。
 - `electron/`：Electron 主进程和 preload 相关代码。
@@ -103,6 +107,30 @@
   -> smallPageStore.openPage('answer-progress')
   -> 显示 AnswerProgressWidget 普通小屏
 
+点击选题提问入口（自编 / 共享 / 教材 / 题库）
+  -> AskEntryWidget emit('flow-action', { action: 'open-select-question', initialTab })
+  -> flowStore.openSelectQuestion()
+  -> viewMode = 'small-page'
+  -> smallPageStore.openPage('select-question')
+  -> 显示 SelectQuestionWidget 普通小屏
+
+选题提问选择 1 道客观题后点击开始提问
+  -> action = 'open-answer-progress'
+  -> entrySource = 'select-question'
+  -> smallPageStore.openPage('answer-progress')
+  -> 显示 AnswerProgressWidget 普通小屏
+  -> 结束答题后进入 /ask/objective-detail
+
+选题提问选择多道客观题或主观题答题入口
+  -> action = 'start-question-batch-progress'
+  -> flowStore.startQuestionBatchProgress()
+  -> sourceType = 'question-batch'
+  -> router.push('/ask/answer-progress')
+  -> AnswerProgressView 按 currentQuestionIndex 展示当前题
+  -> 点击下一题时 action = 'next-answer-progress-question'
+  -> 最后一题点击结束答题时 action = 'finish-answer-progress'
+  -> router.push('/ask/multi-batch-analysis')
+
 点击结束答题
   -> action = 'finish-answering'
   -> viewMode = 'fullscreen'
@@ -144,7 +172,9 @@
 - `WidgetShell` 只用于 `compact` 缩屏，不能拿来包普通小屏页面。
 - 全屏页面自己的按钮由全屏页面组件控制，不由 `WidgetShell` 控制。
 - 全屏页面的缩屏、最小化、关闭、消费流程 target 等通用窗口控制优先使用 `src/views/ask/composables/useAskFullscreenControls.js`，避免各页面重复操作 `smallPageStore`、`widgetStore` 和 router。
-- 胶囊 / 悬浮球只在 `viewMode === 'idle'` 时显示；`small-page`、`fullscreen`、`compact`、`minimized` 都不显示胶囊。
+- 胶囊 / 悬浮球在 `idle` 时显示；`small-page` 只有当前普通小屏显式 `showFloatingBall: true` 时才共存，例如 `ask-entry` 和普通语音出题入口。`fullscreen`、`compact`、`minimized` 不显示胶囊。
+- 选题提问小屏是普通小屏，类型为 `select-question`，尺寸由 `smallPageStore` 的 `SMALL_PAGE_PRESETS` 管理；内部 Tab 初始值通过 `initialTab` 传入。
+- 选题提问的主客观混选规则留在 `SelectQuestionWidget.vue` 和 `src/shared/utils/selectQuestion.js`，流程跳转仍由 `flowStore` 决定。
 
 ### `flowStore` 动作结构
 
@@ -153,6 +183,7 @@
 - 具体流程写成小型 action 方法，例如 `openAnswerProgress()`、`finishAnswering()`、`startVoiceQuestion()`、`finishAnswerProgress()`。
 - 路由和步骤映射优先补顶部常量表，例如 `ANSWER_PROGRESS_ENTRY_TARGETS`、`FINISH_ANSWERING_TARGETS`、`FULLSCREEN_ROUTE_STEPS`、`READ_RECITE_COMPACT_ROUTES`。
 - 返回普通小屏目标优先使用 `createSmallPageTarget()` / `openSmallPage()`；返回全屏目标优先使用 `openFullscreen()`。
+- 选题提问多题流程使用 `startQuestionBatchProgress()`、`nextAnswerProgressQuestion()` 和 `finishAnswerProgress()`；`answerProgressState.sourceType === 'question-batch'` 时结束后进入多题批次分析。
 
 ### 新增流程时的落点
 
